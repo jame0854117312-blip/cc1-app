@@ -1,12 +1,10 @@
-# สร้างแอป CC1 จาก index.html ล่าสุดใน Google Apps Script แล้วขึ้น GitHub Pages
-# ทำงานเองเมื่อมีการแก้ไฟล์ใน repo, ทุก 6 ชั่วโมง หรือกด Run workflow ในแท็บ Actions
-name: Build and deploy app
+# เผยแพร่แอป CC1 ขึ้น GitHub Pages
+# แอปดึงเนื้อหาบทเรียนล่าสุดจาก Google Apps Script เองตอนเปิด ไม่ต้องแก้ไฟล์ในนี้เมื่ออัปเดตบทเรียน
+name: Deploy app
 
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -26,10 +24,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: node build.js
+      - name: Collect app files
+        run: |
+          mkdir _site
+          cp index.html sw.js config.js transform-web.js manifest.webmanifest *.png _site/
+          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
