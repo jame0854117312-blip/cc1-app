@@ -839,13 +839,13 @@ function mountFig(el,name){const f=FIG[name];if(!f){el.innerHTML='';return}
  const n=f.steps.length;
  el.innerHTML=`<figure class="sf">${f.title?`<div class="sf-title">${f.title}</div>`:''}<div class="sf-cv">${svgWrap(f.h,f.body())}</div>${n>1?`<div class="sf-leg">${f.steps.map((t,k)=>`<button type="button" data-k="${k}"><i>${k+1}</i><span>${t}</span></button>`).join('')}</div><div class="sf-mode"><button class="all" type="button">ดูภาพรวม</button><button class="play" type="button">▶ เล่นทีละขั้น</button></div>`:`<figcaption class="sf-cap">${f.steps[0]||''}</figcaption>`}</figure>`;
  const gs=$$('[data-s]',el),leg=$$('.sf-leg button',el);let timer=null,foc=-1;
- const paint=(k,mode)=>{const lim=mode==='all'?n-1:k;gs.forEach(g=>{const s0=+g.dataset.s,hd=g.dataset.hide;const off=s0>lim||(hd!=null&&lim>=+hd);g.classList.toggle('off',off);g.classList.toggle('dim',!off&&mode==='focus'&&s0!==k);g.classList.toggle('cur',!off&&mode!=='all'&&s0===k&&k>0)});leg.forEach((b0,j)=>b0.classList.toggle('on',mode!=='all'&&j===k))};
+ const paint=(k,mode)=>{const lim=mode==='all'?n-1:k;gs.forEach(g=>{const s0=+g.dataset.s,hd=g.dataset.hide;const off=s0>lim||(hd!=null&&lim>=+hd);g.classList.toggle('off',off);g.classList.toggle('dim',!off&&mode==='focus'&&s0!==k);g.classList.toggle('cur',!off&&mode!=='all'&&s0===k&&k>0)});leg.forEach((b0,j)=>b0.classList.toggle('on',mode!=='all'&&j===k));animFig(el,k,mode)};
  const stop=()=>{clearInterval(timer);timer=null;const b=$('.play',el);if(b)b.textContent='▶ เล่นทีละขั้น'};
  const focus=k=>{stop();if(foc===k){foc=-1;paint(0,'all');return}foc=k;paint(k,'focus')};
  if(n>1){leg.forEach(b0=>b0.onclick=()=>focus(+b0.dataset.k));
   gs.forEach(g=>g.addEventListener('click',e=>{if(e.target.closest('[data-pop]'))return;focus(+g.dataset.s)}));
   $('.all',el).onclick=()=>{stop();foc=-1;paint(0,'all')};
-  $('.play',el).onclick=e=>{if(timer){stop();return}let k=0;foc=-1;paint(0,'step');e.target.textContent='❚❚ หยุด';timer=setInterval(()=>{if(!document.body.contains(el)){stop();return}k++;if(k>=n){stop();paint(0,'all');return}paint(k,'step')},3200)}}
+  $('.play',el).onclick=e=>{if(timer){stop();return}let k=0;foc=-1;paint(0,'step');e.target.textContent='❚❚ หยุด';timer=setInterval(()=>{if(!document.body.contains(el)){stop();return}k++;if(k>=n){stop();paint(n-1,f.anim?'step':'all');return}paint(k,'step')},f.dur||3200)}}
  paint(0,'all')}
 
 const POP={};
@@ -936,6 +936,34 @@ const PFX=n=>PSX('กลไก',`<div data-fig="${n}"></div>`);
 const HUBX=groups=>`<div class="hub">${groups.map(g=>`<section class="hub-g" style="--hc:var(${g.c||'--violet'})"><header><b>${g.h}</b><span>${g.n||''}</span></header><div class="hub-grid">${g.items.map(([k,nm,sub])=>`<button type="button" class="hub-card" data-pop="${k}"><b>${nm}</b><span>${sub||''}</span><i>อ่านทุกรายละเอียด ›</i></button>`).join('')}</div></section>`).join('')}</div>`;
 const PEXM=a=>`<div hidden>${a.map(([k,t])=>`<span data-ex="${t}" data-pop-ex="${k}"></span>`).join('')}</div>`;
 const RW=r=>`<div class="drug pop-drug">${r.map(([l,h])=>`<div class="r ${DRK(l)}"><span>${l}</span><span>${h}</span></div>`).join('')}</div>`;
+/* ---- animated mechanism scenes (SMIL, step-synced) ---- */
+let _mvn=0;
+const MV=(d,o={})=>{const {dur=2.6,n=3,c='--agar',r=7,lbl='',rep='indefinite',track=0,tc}=o;const id='mv'+(++_mvn);let s=`<path id="${id}p" d="${d}" style="fill:none;${track?`stroke:var(${tc||c});stroke-width:1.4;stroke-dasharray:3 5;opacity:.45`:'stroke:none'}"/>`;
+ for(let i=0;i<n;i++){const b=i?`${id}a.begin+${(dur/n*i).toFixed(2)}s`:'indefinite';
+  s+=`<g class="mv" opacity="0"><set attributeName="opacity" to="1" begin="${b}" fill="freeze"/>${lbl?`<circle r="${r}" style="fill:var(${c});stroke:var(--surface);stroke-width:1.5"/><text y="${(r*0.36).toFixed(1)}" text-anchor="middle" font-size="${(r*(lbl.length>2?0.78:1.02)).toFixed(1)}" font-weight="800" style="fill:#fff;font-family:var(--f-disp)">${lbl}</text>`:`<circle r="${r}" style="fill:var(${c});stroke:var(--surface);stroke-width:1"/>`}<animateMotion ${i?'':`id="${id}a" `}begin="${b}" dur="${dur}s" repeatCount="${rep}" fill="freeze"><mpath href="#${id}p"/></animateMotion></g>`}
+ return s};
+const AN=(attr,vals,dur,o={})=>`<animate attributeName="${attr}" values="${vals}" dur="${dur}s" begin="indefinite" repeatCount="${o.rep||1}" fill="freeze"${o.kt?` keyTimes="${o.kt}"`:''}/>`;
+const ANT=(vals,dur,o={})=>`<animateTransform attributeName="transform" type="${o.type||'translate'}" values="${vals}" dur="${dur}s" begin="indefinite" repeatCount="${o.rep||1}" fill="freeze"/>`;
+function animFig(el,k,mode){const sv=el.querySelector('.sf-cv svg');if(!sv)return;sv.dataset.mode=mode;
+ const isC=a=>{const b=a.getAttribute('begin')||'';return b==='indefinite'||b.includes('.begin')};
+ const groups=[...sv.querySelectorAll('[data-s]')].filter(g=>[...g.querySelectorAll('animate,animateMotion,animateTransform,set')].some(isC));
+ groups.forEach(g=>{const s0=+g.dataset.s;const act=!g.classList.contains('off')&&(mode==='all'||(mode==='focus'?s0===k:s0<=k));
+  const an=[...g.querySelectorAll('animate,animateMotion,animateTransform,set')].filter(isC);
+  const restart=act&&(!g._on||(mode!=='all'&&s0===k&&g._k!==k+mode));
+  const reset=()=>an.map(x=>{const c=x.cloneNode(true);x.replaceWith(c);return c});
+  if(!act&&g._on){reset();g._on=0}
+  if(restart){reset().forEach(x=>{if(x.getAttribute('begin')==='indefinite')try{x.beginElement()}catch(e){}});g._on=1}
+  g._k=k+mode})}
+
+/* ---- shared scene helpers ---- */
+const PL=(x,y,t,c)=>{const w=t.length*7.2+18;return `<rect x="${x-w/2}" y="${y-11}" width="${w}" height="22" rx="11" style="fill:var(${c});stroke:var(--surface);stroke-width:2"/><text x="${x}" y="${y+4.5}" font-size="11.5" font-weight="800" text-anchor="middle" style="fill:#fff">${t}</text>`};
+const DMV=(from,dur,inner,o={})=>`<g>${ANT(from+';0,0',dur,o)}${inner}</g>`;
+const VES=(y,h,lbl,x0=0,x1=640)=>R(x0,y,x1-x0,h,'--bad-soft',{rx:0})+T(x1-8,y+h-8,lbl||'หลอดเลือด',{s:11.5,w:700,a:'end',c:'--bad'});
+const PULSE=(cx,cy,r,c)=>`<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:none;stroke:var(${c});stroke-width:3">${AN('r',`${r};${r+8};${r}`,1.4,{rep:'indefinite'})}${AN('stroke-opacity','1;.15;1',1.4,{rep:'indefinite'})}</circle>`;
+
+const NOX=(x,y,c='--bad')=>`<g stroke="var(${c})" stroke-width="4" stroke-linecap="round"><line x1="${x-9}" y1="${y-9}" x2="${x+9}" y2="${y+9}"/><line x1="${x+9}" y1="${y-9}" x2="${x-9}" y2="${y+9}"/></g>`;
+const HEART=(cx,cy,s,c,beat)=>`<g transform="translate(${cx},${cy}) scale(${s})"><g>${beat?ANT(`1;1.1;1`,beat,{type:'scale',rep:'indefinite'}):''}<path d="M0,-12 C10,-18 15,-26 25,-28 C45,-32 55,-12 30,10 L0,30 L-30,10 C-55,-12 -45,-32 -25,-28 C-15,-26 -10,-18 0,-12 Z" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:${2.5/s}"/></g></g>`;
+const KID=(x,y,s,c='--agar')=>`<path transform="translate(${x},${y}) scale(${s})" d="M30,0 C60,0 70,30 60,50 C54,60 40,56 40,70 C40,84 56,82 60,92 C68,116 50,140 30,140 C0,140 -10,100 -10,70 C-10,40 0,0 30,0 Z" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:${2.5/s}"/>`;
 
 /* ================= views ================= */
 const view=()=>$('#view');
@@ -4963,29 +4991,69 @@ Object.assign(SITE,{
  gutIslet:(hl='--blue')=>c12Gut(10,60,.9,'--agar')+c12Lbl(90,130,'ลำไส้: L-cell หลั่ง GLP-1','--agar')+c12Isl(190,30,.8,hl)+c12Lbl(262,130,'ตับอ่อน','--violet')+`<path d="M170,80 C180,70 186,64 196,60" style="fill:none;stroke:var(--blue);stroke-width:2;stroke-dasharray:4 3"/>`
 });
 const _NO=(x,y,c='--blue')=>`<g stroke="var(${c})" stroke-width="4" stroke-linecap="round"><line x1="${x-9}" y1="${y-9}" x2="${x+9}" y2="${y+9}"/><line x1="${x+9}" y1="${y-9}" x2="${x-9}" y2="${y+9}"/></g>`;
+/* ---- DM: animated pathophysiology scenes ---- */
+FIG.dmInsSec={title:'β-cell หลั่ง insulin อย่างไร — ดูโมเลกุลเดินทางทีละขั้น',h:340,anim:1,dur:5200,body:()=>{let b='';
+ // scenery
+ b+=G(0,R(0,282,640,48,'--bad-soft',{rx:0})+T(632,312,'หลอดเลือด',{s:12,w:700,a:'end',c:'--bad'})+
+  R(110,40,450,212,'--blue-soft',{sc:'--blue',sw:3,rx:40})+T(548,72,'β-cell',{s:15,w:800,a:'end',c:'--blue'})+
+  `<ellipse cx="478" cy="178" rx="48" ry="34" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(478,183,'nucleus',{s:11,a:'middle',c:'--violet'})+
+  `<ellipse id="dmMito" cx="232" cy="150" rx="44" ry="22" style="fill:var(--ok-soft);stroke:var(--ok);stroke-width:2.5"/><path d="M200,150 q8,-12 16,0 t16,0 t16,0 t16,0" style="fill:none;stroke:var(--ok);stroke-width:1.5"/>`+T(232,186,'mitochondria',{s:11,a:'middle',c:'--ok'})+
+  R(100,126,22,16,'--agar',{rx:3})+R(100,158,22,16,'--agar',{rx:3})+T(64,118,'GLUT-2',{s:12,w:700,a:'middle',c:'--agar'})+
+  R(288,28,16,26,'--violet',{rx:3})+R(316,28,16,26,'--violet',{rx:3})+`<rect id="dmKgate" x="338" y="30" width="12" height="22" rx="3" style="fill:var(--bad)"/>`+T(310,20,'K-ATP channel',{s:12,w:700,a:'middle',c:'--violet'})+
+  R(438,28,16,26,'--saf',{rx:3})+R(466,28,16,26,'--saf',{rx:3})+`<rect id="dmCagate" x="454" y="30" width="12" height="22" rx="3" style="fill:var(--bad)"/>`+T(460,20,'Ca²⁺ channel',{s:12,w:700,a:'middle',c:'--saf'})+
+  [[330,214],[372,204],[412,220]].map(([x,y],i)=>`<g id="dmVes${i}"><circle cx="${x}" cy="${y}" r="17" style="fill:var(--surface);stroke:var(--blue);stroke-width:2"/>${[[-6,-4],[5,-5],[0,6]].map(([a,c])=>`<circle cx="${x+a}" cy="${y+c}" r="4" style="fill:var(--blue)"/>`).join('')}</g>`).join('')+T(474,236,'vesicle เก็บ insulin',{s:11,a:'middle',c:'--blue'}));
+ b+=G(0,MV('M10,306 C60,306 70,150 104,150 L140,150 C160,150 175,150 190,150',{n:4,lbl:'G',c:'--agar',r:8,dur:3.2,track:1}));
+ b+=G(0,MV('M310,118 L310,44 L310,-6',{n:3,lbl:'K',c:'--violet',r:7,dur:2.4,track:1})+T(330,104,'K⁺ ไหลออก',{s:11,a:'start',c:'--violet'}),{hide:2});
+ b+=G(1,`<ellipse cx="232" cy="150" rx="44" ry="22" style="fill:none;stroke:var(--ok);stroke-width:4">${AN('stroke-opacity','1;.2;1',1.2,{rep:'indefinite'})}</ellipse>`+MV('M252,132 C268,104 290,82 306,56',{n:3,lbl:'ATP',c:'--ok',r:11,dur:2.2,track:1}));
+ b+=G(2,`<animate href="#dmKgate" attributeName="x" values="338;304" dur="0.8s" begin="indefinite" fill="freeze"/>`+MV('M286,92 C296,68 324,68 334,92 C324,116 296,116 286,92',{n:3,lbl:'K',c:'--violet',r:7,dur:2.6})+T(132,214,'K⁺ ออกไม่ได้',{s:12.5,w:700,a:'start',c:'--violet'})+T(132,232,'→ ในเซลล์เป็นบวก',{s:12.5,w:700,a:'start',c:'--violet'}));
+ b+=G(3,[[124,80],[124,210],[200,246],[290,246],[540,120],[540,210],[400,52],[200,52]].map(([x,y])=>`<text x="${x}" y="${y}" font-size="17" font-weight="800" text-anchor="middle" style="fill:var(--bad)">+${AN('opacity','0;1;.3;1',1.4,{rep:'indefinite'})}</text>`).join('')+`<animate href="#dmCagate" attributeName="x" values="454;488" dur="0.8s" begin="indefinite" fill="freeze"/>`+MV('M460,-6 L460,44 C460,110 430,160 400,196',{n:4,lbl:'Ca',c:'--saf',r:8,dur:2.6,track:1}));
+ b+=G(4,[0,1,2].map(i=>`<animateTransform href="#dmVes${i}" attributeName="transform" type="translate" values="0,0;0,${[22,32,16][i]}" dur="1s" begin="indefinite" fill="freeze"/>`).join('')+MV('M372,250 L372,300 C420,306 520,306 640,306',{n:5,lbl:'I',c:'--blue',r:8,dur:3.4,track:1})+T(388,272,'insulin เข้าเลือด',{s:12,w:700,a:'start',c:'--blue'}));
+ b+=G(5,`<g><g>${ANT('-110,-34;0,0',1.2)}<rect x="286" y="54" width="48" height="22" rx="11" style="fill:var(--violet);stroke:var(--surface);stroke-width:2"/><text x="310" y="70" font-size="12" font-weight="800" text-anchor="middle" style="fill:#fff">SU</text></g></g>`+`<animate href="#dmKgate" attributeName="x" values="338;304" dur="0.8s" begin="indefinite" fill="freeze"/>`+T(128,100,'SU / glinide จับ SUR',{s:12,w:700,a:'start',c:'--violet'})+T(128,116,'ปิด K-ATP เอง',{s:11.5,a:'start',c:'--violet'}));
+ return b},steps:['กินอาหาร → <b>กลูโคส</b>จากเลือดเข้าเซลล์ β ผ่าน <b>GLUT-2</b> (ปกติ K⁺ ไหลออกทาง K-ATP channel ตลอด)','กลูโคสถูกเผาใน mitochondria ได้ <b>ATP</b> มากขึ้น ATP วิ่งไปที่ K-ATP channel','ATP <b>ปิด K-ATP channel</b> → K⁺ ออกไม่ได้ ค้างในเซลล์','ในเซลล์เป็นบวก = <b>depolarization</b> → <b>Ca²⁺ channel เปิด</b> Ca²⁺ ไหลเข้า','Ca²⁺ ดัน vesicle ไปชิดผนัง → <b>ปล่อย insulin</b> เข้ากระแสเลือด','<b>SU และ glinide</b> จับ SUR ปิด K-ATP ได้เอง → หลั่ง insulin แม้ไม่มีกลูโคส (จึงทำน้ำตาลต่ำได้)']};
+
+FIG.dmInsAct={title:'Insulin เดินทางไปไหน ทำอะไร — และ glucagon ทำตรงข้าม',h:360,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(0,166,640,40,'--bad-soft',{rx:0})+T(632,222,'หลอดเลือด',{s:11.5,w:700,a:'end',c:'--bad'})+
+  c12Isl(6,118,.5)+T(48,112,'ตับอ่อน',{s:11.5,w:700,a:'middle',c:'--agar'})+
+  R(150,22,190,112,'--bad-soft',{sc:'--bad',sw:2.5,rx:26})+T(245,44,'กล้ามเนื้อ',{s:13,w:800,a:'middle',c:'--bad'})+
+  `<path d="M240,134 l0,-12 m0,0 l-7,-8 m7,8 l7,-8" style="stroke:var(--blue);stroke-width:3;fill:none"/>`+T(258,128,'receptor',{s:10.5,a:'start',c:'--blue'})+
+  `<g id="dmGlut4"><circle cx="196" cy="74" r="11" style="fill:var(--surface);stroke:var(--ok);stroke-width:2.5"/><text x="196" y="78" font-size="9" font-weight="800" text-anchor="middle" style="fill:var(--ok)">G4</text></g>`+
+  c12Liv(392,14,.92)+T(470,44,'ตับ',{s:13,w:800,a:'middle',c:'--saf'})+
+  `<circle cx="300" cy="290" r="56" style="fill:#fdf6d8;stroke:var(--agar);stroke-width:2.5"/>`+T(300,296,'เซลล์ไขมัน',{s:13,w:800,a:'middle',c:'--agar'}));
+ b+=G(0,MV('M96,184 L640,184',{n:6,lbl:'I',c:'--blue',r:7.5,dur:4.2}));
+ b+=G(0,MV('M478,112 C480,140 486,160 500,192 L640,192',{n:3,lbl:'G',c:'--agar',r:7.5,dur:2.8,track:1})+T(500,140,'ตับปล่อยกลูโคส',{s:11,a:'start',c:'--agar'}),{hide:2});
+ b+=G(0,MV('M300,232 L300,196 C340,196 520,196 640,196',{n:3,lbl:'FA',c:'--saf',r:8,dur:3,track:1})+T(312,224,'ไขมันสลาย',{s:11,a:'start',c:'--saf'}),{hide:3});
+ b+=G(1,`<animateTransform href="#dmGlut4" attributeName="transform" type="translate" values="0,0;0,50" dur="1.2s" begin="indefinite" fill="freeze"/>`+MV('M196,176 L196,132 C200,106 220,90 250,84',{n:4,lbl:'G',c:'--agar',r:7.5,dur:2.4,track:1})+T(262,74,'→ glycogen',{s:12,w:700,a:'start',c:'--ok'})+T(245,62,'glucose uptake ↑',{s:11.5,w:700,a:'middle',c:'--bad'}));
+ b+=G(2,MV('M478,112 C480,140 486,160 500,192 L640,192',{n:1,lbl:'G',c:'--agar',r:7.5,dur:5})+_NO(488,146,'--blue')+T(470,62,'gluconeogenesis ↓',{s:11.5,w:700,a:'middle',c:'--saf'}));
+ b+=G(3,_NO(300,214,'--blue')+T(300,320,'lipolysis ↓',{s:12,w:700,a:'middle',c:'--agar'}));
+ b+=G(4,MV('M50,124 C120,40 300,6 430,56',{n:4,lbl:'Gn',c:'--bad',r:9,dur:3,track:1})+MV('M478,112 C480,140 486,160 500,192 L640,192',{n:6,lbl:'G',c:'--agar',r:7.5,dur:1.8})+T(392,250,'Glucagon (α-cell)',{s:13,w:800,a:'start',c:'--bad'})+T(392,268,'+ cortisol, epinephrine',{s:11.5,a:'start',c:'--bad'})+T(392,286,'→ ตับปล่อยกลูโคสมากขึ้น',{s:11.5,a:'start',c:'--bad'}));
+ return b},steps:['β-cell ปล่อย <b>insulin</b> เข้าเลือด เดินทางไปทั่วร่างกาย (เดิมตับปล่อยกลูโคส ไขมันสลายตลอด)','<b>กล้ามเนื้อ</b>: insulin จับ receptor → <b>GLUT-4</b> เลื่อนขึ้นผิวเซลล์ → กลูโคสเข้าเซลล์ เก็บเป็น glycogen','<b>ตับ</b>: ยับยั้ง <b>gluconeogenesis</b> → กลูโคสที่ตับปล่อยออกมาลดลง','<b>ไขมัน</b>: ยับยั้ง <b>lipolysis</b> → กรดไขมันไม่ถูกปล่อยเข้าเลือด','<b>Glucagon</b> จาก α-cell (counter-regulatory ร่วมกับ cortisol, epinephrine) ไปที่ตับ → ตับปล่อยกลูโคสมากขึ้น']};
+
+FIG.dmOctet={title:'8 กลไกที่ดันน้ำตาลในเลือดให้สูง (ominous octet)',h:390,anim:1,dur:4600,body:()=>{let b='';
+ const L=[['ไขมัน','lipolysis ↑','--agar',36],['สมอง','dopamine ผิดปกติ','--violet',124],['ไต','ดูดกลับกลูโคส ↑','--blue',212],['กล้ามเนื้อ','นำกลูโคสเข้า ↓','--bad',300]];
+ const Rr=[['ตับ','สร้างกลูโคส ↑','--saf',36],['α-cell','glucagon ↑','--bad',124],['β-cell','insulin ↓','--blue',212],['ลำไส้','incretin ↓','--ok',300]];
+ let sc=R(296,16,48,356,'--bad-soft',{sc:'--bad',sw:2,rx:20})+T(320,384,'เลือด',{s:11.5,w:700,a:'middle',c:'--bad'});
+ sc+=`<circle cx="70" cy="${L[0][3]+18}" r="15" style="fill:#fdf6d8;stroke:var(--agar);stroke-width:2"/><circle cx="92" cy="${L[0][3]+24}" r="13" style="fill:#fdf6d8;stroke:var(--agar);stroke-width:2"/>`;
+ sc+=`<ellipse cx="80" cy="${L[1][3]+20}" rx="30" ry="20" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`;
+ sc+=`<path transform="translate(60,${L[2][3]})" d="M20,0 C44,0 46,20 34,24 C46,30 44,48 20,48 C-4,48 -6,0 20,0 Z" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2"/>`;
+ sc+=c12Mus(44,L[3][3]+2,.45);
+ sc+=c12Liv(520,Rr[0][3]-6,.5)+c12Isl(518,Rr[1][3]-6,.5)+c12Isl(518,Rr[2][3]-6,.5)+c12Gut(510,Rr[3][3]+4,.55);
+ L.forEach(([a,c,col,y])=>sc+=T(130,y+16,a,{s:13,w:800,a:'start',c:col})+T(130,y+34,c,{s:11.5,a:'start',c:'--ink2'}));
+ Rr.forEach(([a,c,col,y])=>sc+=T(508,y+16,a,{s:13,w:800,a:'end',c:col})+T(508,y+34,c,{s:11.5,a:'end',c:'--ink2'}));
+ b+=G(0,sc);
+ const lvl=i=>`<rect x="300" width="40" rx="4" style="fill:var(--agar);opacity:.55" y="${368-(i+1)*42}" height="42">${AN('height','0;42',0.8)}${AN('y',`${368-i*42};${368-(i+1)*42}`,0.8)}</rect>`;
+ const flow=(i,d,o)=>G(i,lvl(i)+MV(d,Object.assign({n:3,r:8,dur:2.4,track:1},o)));
+ b+=flow(0,'M110,60 C180,60 240,62 300,60',{lbl:'FA',c:'--saf'});
+ b+=G(1,lvl(1)+[0,1,2].map(i=>`<circle cx="80" cy="144" r="10" style="fill:none;stroke:var(--violet);stroke-width:2">${AN('r','8;34',1.8,{rep:'indefinite'})}${AN('opacity','1;0',1.8,{rep:'indefinite'})}</circle>`).join(''));
+ b+=flow(2,'M110,236 C180,236 240,236 300,234',{lbl:'G',c:'--agar'});
+ b+=G(3,lvl(3)+MV('M300,318 C240,320 190,320 150,322 C190,326 240,328 300,330',{n:3,lbl:'G',c:'--agar',r:8,dur:2.6})+_NO(146,322,'--bad'));
+ b+=flow(4,'M520,58 C440,58 400,60 340,60',{lbl:'G',c:'--agar',n:5,dur:2});
+ b+=flow(5,'M520,148 C470,120 520,80 560,70',{lbl:'Gn',c:'--bad',r:9});
+ b+=G(6,lvl(6)+MV('M520,236 C440,236 400,236 340,236',{n:1,lbl:'I',c:'--blue',r:8,dur:4})+_NO(430,236,'--bad'));
+ b+=G(7,lvl(7)+MV('M520,326 C440,326 400,326 340,326',{n:1,lbl:'GLP',c:'--ok',r:10,dur:4})+_NO(430,326,'--bad'));
+ return b},steps:['<b>ไขมันสลายมากขึ้น</b> → กรดไขมันไปตับ ทำให้ดื้อ insulin (pioglitazone ช่วย)','<b>สารสื่อประสาทในสมองผิดปกติ</b> (dopamine)','<b>ไตดูดกลับกลูโคสมากขึ้น</b> ผ่าน SGLT2 (→ SGLT2 inhibitor)','<b>กล้ามเนื้อนำกลูโคสเข้าเซลล์น้อยลง</b> (ดื้อ insulin → pioglitazone, metformin)','<b>ตับสร้างกลูโคสมากขึ้น</b> (→ metformin)','<b>α-cell หลั่ง glucagon มากขึ้น</b> (→ GLP-1 RA, DPP-4i)','<b>β-cell หลั่ง insulin น้อยลง</b> (→ SU, glinide, insulin)','<b>Incretin ลดลง</b> (→ GLP-1 RA, DPP-4i) — ทั้ง 8 ข้อรวมกันดันระดับน้ำตาลในเลือดให้สูงขึ้นทีละขั้น']};
+
 
 /* ---- disease figures ---- */
-FIG.dmInsSec={title:'β-cell หลั่ง insulin อย่างไร (และจุดที่ SU/glinide ออกฤทธิ์)',h:250,body:()=>{let b='';
- const st=(x,c,t,sub,i)=>G(i,ZB(x,20,112,92,c,t,sub,{s:13,ss:11}));
- b+=st(8,'--agar','กลูโคสเข้า',['ผ่าน GLUT-2','หลังกินอาหาร'],0)+G(0,ZA(122,66,134,66));
- b+=st(136,'--ok','ATP ↑',['เผากลูโคส','ในเซลล์'],1)+G(1,ZA(250,66,262,66));
- b+=st(264,'--bad','K-ATP ปิด',['K⁺ ออกไม่ได้','ในเซลล์บวกขึ้น'],2)+G(2,ZA(378,66,390,66));
- b+=st(392,'--violet','Depolarize',['Ca²⁺ channel','เปิด Ca²⁺ เข้า'],3)+G(3,ZA(506,66,518,66));
- b+=st(520,'--blue','หลั่ง insulin',['vesicle ปล่อย','เข้ากระแสเลือด'],4);
- b+=G(5,ZB(150,140,340,86,'--bad','SU และ glinide จับ SUR บน K-ATP',['ปิดช่องเองโดยไม่รอกลูโคส → หลั่ง insulin','จึงทำน้ำตาลต่ำได้ ต้องมี β-cell เหลือ'],{s:14,ss:11.5})+ZA(320,140,320,114,'--bad'));
- return b},steps:['กินอาหาร → กลูโคสเข้าเซลล์ β ผ่าน <b>GLUT-2</b>','กลูโคสถูกเผาได้ <b>ATP</b> มากขึ้น','ATP ปิด <b>ATP-sensitive K⁺ channel</b> → ในเซลล์บวกขึ้น','เกิด <b>depolarization</b> → Ca²⁺ channel เปิด Ca²⁺ ไหลเข้า','Ca²⁺ กระตุ้นให้ vesicle <b>ปล่อย insulin</b> เข้าเลือด','<b>SU และ glinide</b> ปิด K-ATP ตรงนี้ได้เองโดยไม่ต้องรอกลูโคส']};
-FIG.dmInsAct={title:'Insulin ทำงานที่ 3 อวัยวะ — glucagon ทำตรงข้าม',h:250,body:()=>{let b='';
- b+=G(0,ZB(230,10,180,56,'--blue','Insulin (β-cell)',['ฮอร์โมนเดียวที่ลดน้ำตาล'],{s:14,ss:11}));
- b+=G(1,ZA(260,66,110,104)+ZB(10,106,200,74,'--bad','กล้ามเนื้อ',['นำกลูโคสเข้าเซลล์ (GLUT-4)','เก็บเป็น glycogen'],{s:14,ss:11.5}));
- b+=G(2,ZA(320,66,320,104)+ZB(220,106,200,74,'--saf','ตับ',['ยับยั้ง gluconeogenesis','ลดการสร้างกลูโคส'],{s:14,ss:11.5}));
- b+=G(3,ZA(380,66,530,104)+ZB(430,106,200,74,'--agar','ไขมัน',['ยับยั้ง lipolysis','ไม่สลายไขมัน'],{s:14,ss:11.5}));
- b+=G(4,ZB(10,196,620,46,'--bad','Glucagon (α-cell) + cortisol + epinephrine = counter-regulatory',['เพิ่มน้ำตาล: กระตุ้น gluconeogenesis, glycogenolysis, lipolysis'],{s:13.5,ss:11}));
- return b},steps:['<b>Insulin</b> หลั่งจาก β-cell เป็น <b>regulatory hormone ตัวเดียว</b>ที่ลดน้ำตาล','กล้ามเนื้อ: เพิ่ม <b>glucose uptake</b> แล้วเก็บเป็น glycogen','ตับ: <b>ยับยั้ง gluconeogenesis</b>','ไขมัน: <b>ยับยั้ง lipolysis</b>','<b>Counter-regulatory hormone</b> (glucagon จาก α-cell, cortisol, epinephrine) เพิ่มน้ำตาล']};
-FIG.dmOctet={title:'น้ำตาลสูงใน T2DM เกิดจาก 8 กลไก',h:260,body:()=>{let b='';
- b+=ZB(240,100,160,60,'--bad','น้ำตาลในเลือดสูง',[],{s:15});
- const it=[[10,10,'สลายไขมันมาก','(lipolysis ↑)','--agar'],[220,10,'สารสื่อประสาทผิดปกติ','(dopamine)','--violet'],[430,10,'ไตดูดกลับกลูโคส ↑','(SGLT2)','--blue'],[10,96,'กล้ามเนื้อนำกลูโคส','เข้าเซลล์ ↓','--bad'],[430,96,'ตับสร้างกลูโคส ↑','(gluconeogenesis)','--saf'],[10,182,'glucagon หลั่ง ↑','(α-cell)','--bad'],[220,182,'insulin หลั่ง ↓','(β-cell)','--blue'],[430,182,'incretin ↓','(GLP-1, GIP)','--ok']];
- it.forEach(([x,y,t,s,c],i)=>b+=G(i>3?1:0,ZB(x,y,200,64,c,t,[s],{s:13,ss:11})));
- return b},steps:['T2DM ไม่ได้มีแค่ "insulin ไม่พอ" — มี <b>8 กลไก</b>ร่วมกัน (ominous octet)','สลายไขมันมาก • สารสื่อประสาท (dopamine) ผิดปกติ • <b>ไตดูดกลับกลูโคสมากขึ้น</b> • กล้ามเนื้อนำกลูโคสเข้าน้อย • <b>ตับสร้างกลูโคสมาก</b> • <b>glucagon มาก</b> • <b>insulin น้อย</b> • <b>incretin น้อย</b> — ยาแต่ละกลุ่มแก้คนละกลไก']};
 FIG.dmA1c={title:'HbA1c ยิ่งสูง ภาวะแทรกซ้อนยิ่งมาก',h:230,body:()=>{let b='';
  const v=[[6,12],[7,22],[8,62],[9,110],[10,150]];
  b+=`<line x1="60" y1="190" x2="600" y2="190" style="stroke:var(--line);stroke-width:2"/>`+T(330,222,'HbA1c (%)',{s:12,a:'middle',c:'--muted'})+T(30,100,'เสี่ยง',{s:12,a:'middle',c:'--muted'});
@@ -5005,56 +5073,97 @@ FIG.dmDx={title:'เกณฑ์วินิจฉัยเบาหวาน (A
  return b},steps:['<b>FPG ≥126 mg/dL</b> หลังอดอาหาร ≥8 ชม. • 100–125 = impaired fasting glucose','<b>OGTT 75 g ที่ 2 ชม. ≥200</b> • 140–199 = impaired glucose tolerance','<b>HbA1c ≥6.5%</b> • 5.7–6.4% = prediabetes','<b>Random ≥200 + อาการ</b> — ระวังสับสน: วินิจฉัย ≥6.5% แต่<b>เป้าหมาย <7%</b>']};
 
 /* ---- mechanism figures (site panel = ตำแหน่งที่ยาออกฤทธิ์) ---- */
-FIG.dmMetMoA={title:'กลไก metformin ที่ตับ',h:240,body:()=>{let b='';
- b+=G(0,ZB(20,20,180,80,'--saf','Metformin',['เข้าเซลล์ตับ'],{s:14.5,ss:11.5})+ZA(202,60,242,60));
- b+=G(1,ZB(244,14,190,92,'--blue','กระตุ้น AMPK',['(AMP-activated','protein kinase)'],{s:14,ss:11.5}));
- b+=G(2,ZA(436,60,458,60)+ZB(460,14,160,92,'--ok','Gluconeogenesis ↓',['ตับสร้างกลูโคสน้อย','น้ำตาลลด','ไม่ทำน้ำตาลต่ำ'],{s:13.5,ss:11.5}));
- b+=G(3,ZB(20,128,600,92,'--bad','ผลเสียตามกลไก: lactate สะสม',['ไม่ใช้ pyruvate/lactate ไปสร้างกลูโคส → lactate ↑ → lactic acidosis (MALA)','ยิ่งเสี่ยงเมื่อ eGFR <30, ขาดออกซิเจน, ขาดน้ำ, เลือดเป็นกรด'],{s:14.5,ss:12,lh:20}));
- return b},steps:['Metformin ออกฤทธิ์หลักที่<b>ตับ</b>','กระตุ้น <b>AMPK</b> → ปรับการถอดรหัสยีน','<b>ยับยั้ง gluconeogenesis</b> → ตับสร้างกลูโคสน้อยลง ไม่กระตุ้น insulin จึง<b>ไม่ทำน้ำตาลต่ำ</b>','ผลข้างเคียงตามกลไก: <b>lactate สะสม</b> → metformin-associated lactic acidosis (MALA)']};
-FIG.dmSuMoA={title:'กลไก sulfonylurea และ glinide ที่ β-cell',h:240,body:()=>{let b='';
- b+=G(0,ZB(20,20,190,80,'--bad','SU / glinide',['จับ sulfonylurea','receptor (SUR1)'],{s:14.5,ss:11.5})+ZA(212,60,252,60));
- b+=G(1,ZB(254,14,180,92,'--bad','ATP-sensitive',['K⁺ channel ปิด','→ depolarization'],{s:14,ss:11.5}));
- b+=G(2,ZA(436,60,458,60)+ZB(460,14,160,92,'--blue','Ca²⁺ เข้า',['vesicle ปล่อย','insulin'],{s:14,ss:11.5}));
- b+=G(3,ZB(20,128,290,92,'--agar','Sulfonylurea',['หลั่ง insulin แรง ไม่ขึ้นกับอาหาร','→ น้ำตาลต่ำ น้ำหนักเพิ่ม'],{s:14,ss:11.5})+ZB(330,128,290,92,'--violet','Glinide (non-SU)',['จับคนละตำแหน่ง ออกฤทธิ์เร็ว-สั้น','→ ลดน้ำตาลหลังอาหาร'],{s:14,ss:11.5}));
- return b},steps:['ยาจับ <b>sulfonylurea receptor</b> ซึ่งเป็นส่วนหนึ่งของ <b>ATP-sensitive K⁺ channel</b> บน β-cell','channel ปิด → เกิด <b>depolarization</b>','Ca²⁺ ไหลเข้า → <b>ปล่อย insulin</b> (ต้องมี β-cell เหลือ)','SU หลั่งแรงไม่ขึ้นกับมื้ออาหาร → <b>น้ำตาลต่ำ</b> • glinide จับคนละตำแหน่ง สั้นกว่า ใช้คุม<b>น้ำตาลหลังอาหาร</b>']};
-FIG.dmTzdMoA={title:'กลไก pioglitazone: PPAR-γ agonist',h:240,body:()=>{let b='';
- b+=G(0,ZB(20,20,170,80,'--ok','Pioglitazone',['กระตุ้น PPAR-γ','ในนิวเคลียส'],{s:14.5,ss:11.5}));
- b+=G(1,ZA(192,60,230,40)+ZB(232,8,180,60,'--bad','กล้ามเนื้อ',['กลูโคสเข้าเซลล์ ↑'],{s:13.5,ss:11}));
- b+=G(2,ZA(192,60,230,104)+ZB(232,80,180,60,'--agar','ไขมัน',['สร้างไขมัน เก็บ fatty acid ↑'],{s:13.5,ss:11}));
- b+=G(2,ZA(412,74,440,74)+ZB(442,8,178,132,'--saf','ตับ',['สร้างกลูโคส ↓','','= ลดการดื้อ insulin','(insulin sensitizer)'],{s:14,ss:11.5}));
- b+=G(3,ZB(20,158,600,66,'--bad','ADR ตามกลไก',['บวมน้ำ (fluid retention) → HF กำเริบ • น้ำหนักเพิ่ม • กระดูกพรุน/หัก • มะเร็งกระเพาะปัสสาวะ (เฝ้าระวัง)'],{s:14,ss:12}));
- return b},steps:['Pioglitazone กระตุ้น <b>PPAR-γ</b> ในนิวเคลียส','กล้ามเนื้อนำกลูโคสเข้าเซลล์มากขึ้น','เนื้อเยื่อไขมันเก็บ fatty acid และสร้างไขมันมากขึ้น ตับสร้างกลูโคสลดลง = <b>insulin sensitizer</b>','ผลเสีย: <b>บวมน้ำ</b> (ระวัง HF NYHA III–IV) น้ำหนักเพิ่ม กระดูกพรุน มะเร็งกระเพาะปัสสาวะ']};
-FIG.dmAgiMoA={title:'กลไก α-glucosidase inhibitor ที่ลำไส้เล็ก',h:230,body:()=>{let b='';
- b+=G(0,ZB(20,20,190,80,'--agar','แป้ง (carbohydrate)',['จากอาหาร'],{s:14,ss:11.5})+ZA(212,60,252,60));
- b+=G(1,ZB(254,14,180,92,'--agar','α-glucosidase',['ย่อยเป็น','monosaccharide'],{s:14,ss:11.5}));
- b+=G(2,_NO(233,60)+ZA(436,60,458,60)+ZB(460,14,160,92,'--blue','Acarbose',['voglibose','(competitive)'],{s:14,ss:11.5}));
- b+=G(3,ZB(20,128,600,80,'--ok','ดูดซึมกลูโคสช้าลง → ลดน้ำตาลหลังอาหาร',['กินพร้อมคำแรก • แป้งที่ไม่ถูกย่อยถูกหมัก → ท้องอืด ผายลม ท้องเสีย','น้ำตาลต่ำจากยาอื่น: แก้ด้วยกลูโคสเท่านั้น (ซูโครสย่อยไม่ได้)'],{s:14.5,ss:12,lh:20}));
- return b},steps:['แป้งจากอาหารต้องถูกย่อยเป็น monosaccharide ก่อนดูดซึม','เอนไซม์ <b>α-glucosidase</b> ที่ผิวลำไส้เล็กทำหน้าที่นี้','<b>Acarbose, voglibose</b> ยับยั้งแบบแข่งขัน → ดูดซึมกลูโคสน้อยลง','ผล: <b>ลดน้ำตาลหลังอาหาร</b> • ADR ท้องอืด • แก้น้ำตาลต่ำด้วย<b>กลูโคส</b>เท่านั้น']};
-FIG.dmIncMoA={title:'Incretin: GLP-1 RA และ DPP-4 inhibitor',h:250,body:()=>{let b='';
- b+=G(0,ZB(20,20,180,80,'--agar','กินอาหาร',['ลำไส้หลั่ง','GLP-1 และ GIP'],{s:14,ss:11.5})+ZA(202,60,242,60));
- b+=G(1,ZB(244,14,190,92,'--blue','ตับอ่อน',['β-cell: insulin ↑','α-cell: glucagon ↓','(ตามระดับน้ำตาล)'],{s:14,ss:11.5}));
- b+=G(2,ZB(456,14,164,92,'--bad','DPP-4',['สลาย GLP-1/GIP','อยู่ได้ไม่กี่นาที'],{s:14,ss:11.5})+ZA(454,60,436,60,'--bad'));
- b+=G(3,ZB(20,128,290,100,'--violet','GLP-1 RA (ฉีด/กิน)',['ดัดแปลงให้ทน DPP-4','ชะลอกระเพาะ อิ่มเร็ว','→ น้ำหนักลด'],{s:14,ss:11.5})+ZB(330,128,290,100,'--blue','DPP-4 inhibitor (กิน)',['ยับยั้ง DPP-4','GLP-1 ของร่างกายอยู่นานขึ้น','→ น้ำหนักเป็นกลาง'],{s:14,ss:11.5})+_NO(445,60,'--blue'));
- return b},steps:['กินอาหาร → ลำไส้หลั่ง <b>incretin</b> (GLP-1, GIP)','กระตุ้น β-cell หลั่ง insulin และลด glucagon จาก α-cell <b>เฉพาะเมื่อน้ำตาลสูง</b> → น้ำตาลต่ำน้อย','ปกติ <b>DPP-4</b> สลาย incretin เร็วมาก','แก้ 2 ทาง: <b>GLP-1 RA</b> ดัดแปลงให้ทน DPP-4 (น้ำหนักลด) • <b>DPP-4 inhibitor</b> ยับยั้งเอนไซม์ (น้ำหนักเป็นกลาง)']};
-FIG.dmSgltMoA={title:'กลไก SGLT2 inhibitor ที่ท่อไตส่วนต้น',h:240,body:()=>{let b='';
- b+=G(0,ZB(20,20,180,80,'--blue','กรองที่ glomerulus',['กลูโคสออกมา','ในท่อไต'],{s:14,ss:11.5})+ZA(202,60,242,60));
- b+=G(1,ZB(244,14,190,92,'--blue','SGLT2 ที่ PCT',['ดูดกลูโคสกลับ','เกือบทั้งหมด'],{s:14,ss:11.5}));
- b+=G(2,_NO(223,60)+ZA(436,60,458,60)+ZB(460,14,160,92,'--ok','SGLT2i',['ขับกลูโคส','ทางปัสสาวะ','ไม่ขึ้นกับ insulin'],{s:14,ss:11.5}));
- b+=G(3,ZB(20,128,290,92,'--ok','ประโยชน์',['ลด CV event • ลดนอน รพ. จาก HF','ชะลอ CKD • น้ำหนักลด'],{s:14,ss:11.5})+ZB(330,128,290,92,'--bad','ADR ตามกลไก',['ติดเชื้อทางเดินปัสสาวะ/อวัยวะเพศ','ปัสสาวะบ่อย ขาดน้ำ • DKA'],{s:14,ss:11.5}));
- return b},steps:['กลูโคสถูกกรองออกที่ glomerulus','ปกติ <b>SGLT2</b> ที่ท่อไตส่วนต้นดูดกลับทั้งหมด คนปกติจึงไม่มีกลูโคสในปัสสาวะ','<b>SGLT2i</b> ปิดตัวขนส่ง → ขับกลูโคสออกทางปัสสาวะ','ได้ประโยชน์ต่อ<b>หัวใจ ไต</b> แต่เสี่ยง<b>ติดเชื้อทางเดินปัสสาวะ/อวัยวะเพศ</b>และ <b>DKA</b>']};
-FIG.dmInsMoA={title:'Insulin จับ insulin receptor ที่เนื้อเยื่อเป้าหมาย',h:230,body:()=>{let b='';
- b+=G(0,ZB(20,20,170,80,'--blue','Insulin',['จับ insulin','receptor'],{s:14.5,ss:11.5})+ZA(192,60,230,60));
- b+=G(1,ZB(232,14,190,92,'--violet','Gene expression',['GLUT-4 ขึ้นผิวเซลล์','กลูโคสเข้าเซลล์'],{s:14,ss:11.5}));
- b+=G(2,ZA(424,60,446,60)+ZB(448,14,172,92,'--ok','น้ำตาลในเลือด ↓',['ใช้เป็นพลังงาน','เก็บเป็น glycogen','ไขมัน โปรตีน'],{s:14,ss:11.5}));
- b+=G(3,ZB(20,128,600,80,'--bad','ADR ตามกลไก',['น้ำตาลต่ำ (rapid/short มี peak) • K⁺ ต่ำ (insulin ดัน K⁺ เข้าเซลล์)','น้ำหนักเพิ่ม (anabolic) • lipohypertrophy ที่จุดฉีด'],{s:14.5,ss:12,lh:20}));
- return b},steps:['Insulin จับ <b>insulin receptor</b> ที่กล้ามเนื้อ ไขมัน ตับ','เกิด gene expression และ <b>GLUT-4</b> ขึ้นผิวเซลล์ → กลูโคสเข้าเซลล์','น้ำตาลในเลือดลด กลูโคสถูกใช้หรือเก็บเป็น glycogen ไขมัน โปรตีน','ผลเสียตามกลไก: <b>น้ำตาลต่ำ K⁺ ต่ำ น้ำหนักเพิ่ม</b>']};
-withSite('dmMetMoA',SITE.liver('--saf'),['เซลล์ตับ','AMPK → gluconeogenesis ↓']);
-withSite('dmSuMoA',SITE.islet('--blue'),['β-cell ของตับอ่อน','ATP-sensitive K⁺ channel (SUR1)']);
-withSite('dmTzdMoA',SITE.tissue('--ok'),['กล้ามเนื้อ ไขมัน ตับ','PPAR-γ ในนิวเคลียส']);
-withSite('dmAgiMoA',SITE.gut('--agar'),['ผิวเยื่อบุลำไส้เล็ก','α-glucosidase']);
-withSite('dmIncMoA',SITE.gutIslet('--blue'),['ลำไส้ → ตับอ่อน','GLP-1 receptor • DPP-4 ในเลือด']);
-withSite('dmSgltMoA',SITE.pct('--blue'),['ท่อไตส่วนต้น (PCT)','SGLT2 transporter']);
-withSite('dmInsMoA',SITE.tissue('--blue'),['กล้ามเนื้อ ไขมัน ตับ','insulin receptor → GLUT-4']);
+/* ---- animated drug-mechanism scenes (DM) ---- */
+FIG.dmMetMoA={title:'กลไก metformin ที่ตับ — ดูยาเดินทางทีละขั้น',h:340,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(252,44)+R(70,24,500,196,'--saf-soft',{sc:'--saf',sw:3,rx:36})+T(554,54,'เซลล์ตับ',{s:15,w:800,a:'end',c:'--saf'})+
+  `<circle cx="150" cy="160" r="22" style="fill:var(--surface);stroke:var(--saf);stroke-width:2"/>`+T(150,164,'Lac',{s:11,w:800,a:'middle',c:'--saf'})+T(150,198,'lactate / pyruvate',{s:10.5,a:'middle',c:'--ink2'})+
+  `<circle cx="440" cy="160" r="22" style="fill:var(--surface);stroke:var(--agar);stroke-width:2"/>`+T(440,164,'Glc',{s:11,w:800,a:'middle',c:'--agar'})+T(440,198,'กลูโคส',{s:10.5,a:'middle',c:'--ink2'})+
+  L(174,160,416,160,'--muted',{m:1,w:2})+T(300,186,'gluconeogenesis',{s:11.5,w:700,a:'middle',c:'--saf'}));
+ b+=G(0,MV('M176,166 L414,166',{n:3,c:'--saf',r:4,dur:2})+MV('M440,184 L440,268 L640,268',{n:3,lbl:'G',c:'--agar',r:8,dur:2.6,track:1})+T(452,236,'ตับปล่อยกลูโคส',{s:11,a:'start',c:'--agar'}),{hide:2});
+ b+=G(0,MV('M0,282 L120,282 C140,282 150,240 150,184',{n:3,lbl:'L',c:'--saf',r:7,dur:2.6,track:1}),{hide:3});
+ b+=G(0,MV('M0,262 L200,262 C230,262 240,200 240,118',{n:3,lbl:'Met',c:'--violet',r:13,dur:3,track:1})+T(250,236,'metformin เข้าเซลล์ตับ',{s:11.5,w:700,a:'start',c:'--violet'}));
+ b+=G(1,`<circle cx="240" cy="92" r="26" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/>`+T(240,97,'AMPK',{s:12,w:800,a:'middle',c:'--blue'})+PULSE(240,92,26,'--blue')+MV('M262,104 C290,118 300,132 300,154',{n:3,c:'--blue',r:4,dur:1.4})+T(272,62,'AMPK ถูกกระตุ้น',{s:11.5,w:700,a:'start',c:'--blue'}));
+ b+=G(2,_NO(300,166,'--bad')+MV('M440,184 L440,268 L640,268',{n:1,lbl:'G',c:'--agar',r:8,dur:5})+T(320,120,'สร้างกลูโคสน้อยลง',{s:12,w:700,a:'start',c:'--ok'})+T(320,104,'ไม่กระตุ้น insulin → ไม่ทำน้ำตาลต่ำ',{s:11,a:'start',c:'--ok'}));
+ b+=G(3,MV('M150,184 L150,276 C220,276 420,280 640,280',{n:6,lbl:'L',c:'--bad',r:7,dur:3,track:1})+T(20,318,'lactate ไม่ถูกใช้ → สะสมในเลือด = lactic acidosis (MALA)',{s:12.5,w:700,a:'start',c:'--bad'})+T(20,336,'เสี่ยงเมื่อ eGFR <30, ขาดออกซิเจน, ขาดน้ำ, เลือดเป็นกรด',{s:11.5,a:'start',c:'--bad'}));
+ return b},steps:['Metformin ออกฤทธิ์หลักที่<b>ตับ</b> (เดิมตับใช้ lactate/pyruvate สร้างกลูโคสแล้วปล่อยเข้าเลือดตลอด)','กระตุ้น <b>AMPK</b> → ปรับการถอดรหัสยีน','<b>ยับยั้ง gluconeogenesis</b> → ตับสร้างกลูโคสน้อยลง ไม่กระตุ้น insulin จึง<b>ไม่ทำน้ำตาลต่ำ</b>','ผลข้างเคียงตามกลไก: <b>lactate สะสม</b> → metformin-associated lactic acidosis (MALA)']};
+
+FIG.dmSuMoA={title:'กลไก sulfonylurea และ glinide ที่ β-cell',h:410,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(276,46)+R(110,50,420,190,'--blue-soft',{sc:'--blue',sw:3,rx:40})+T(518,82,'β-cell',{s:15,w:800,a:'end',c:'--blue'})+
+  R(226,40,44,22,'--violet-soft',{sc:'--violet',rx:5})+T(248,55,'SUR1',{s:10.5,w:800,a:'middle',c:'--violet'})+
+  R(280,38,16,26,'--violet',{rx:3})+R(308,38,16,26,'--violet',{rx:3})+`<rect id="suKg" x="330" y="40" width="12" height="22" rx="3" style="fill:var(--bad)"/>`+T(302,28,'K-ATP',{s:12,w:700,a:'middle',c:'--violet'})+
+  R(430,38,16,26,'--saf',{rx:3})+R(458,38,16,26,'--saf',{rx:3})+`<rect id="suCag" x="446" y="40" width="12" height="22" rx="3" style="fill:var(--bad)"/>`+T(452,28,'Ca²⁺',{s:12,w:700,a:'middle',c:'--saf'})+
+  [[300,200],[342,190],[384,206]].map(([x,y],i)=>`<g id="suV${i}"><circle cx="${x}" cy="${y}" r="16" style="fill:var(--surface);stroke:var(--blue);stroke-width:2"/>${[[-5,-4],[5,-4],[0,6]].map(([a,c])=>`<circle cx="${x+a}" cy="${y+c}" r="3.6" style="fill:var(--blue)"/>`).join('')}</g>`).join(''));
+ b+=G(0,MV('M302,130 L302,64 L302,0',{n:3,lbl:'K',c:'--violet',r:7,dur:2.2,track:1})+T(316,120,'K⁺ ไหลออก',{s:11,a:'start',c:'--violet'}),{hide:1});
+ b+=G(0,DMV('-150,210',1.6,PL(248,86,'SU','--violet'))+T(130,108,'ยาจับ SUR1',{s:12,w:700,a:'start',c:'--violet'})+T(130,124,'(ส่วนหนึ่งของ K-ATP)',{s:11,a:'start',c:'--violet'}));
+ b+=G(1,`<animate href="#suKg" attributeName="x" values="330;296" dur="0.8s" begin="indefinite" fill="freeze"/>`+MV('M288,100 C296,80 318,80 324,100 C318,120 296,120 288,100',{n:3,lbl:'K',c:'--violet',r:7,dur:2.6})+
+  [[128,160],[128,220],[220,226],[520,140],[520,214],[400,82]].map(([x,y])=>`<text x="${x}" y="${y}" font-size="17" font-weight="800" text-anchor="middle" style="fill:var(--bad)">+${AN('opacity','0;1;.3;1',1.4,{rep:'indefinite'})}</text>`).join('')+T(140,180,'channel ปิด → depolarization',{s:12,w:700,a:'start',c:'--bad'}));
+ b+=G(2,`<animate href="#suCag" attributeName="x" values="446;480" dur="0.8s" begin="indefinite" fill="freeze"/>`+MV('M452,0 L452,54 C452,120 410,160 370,186',{n:4,lbl:'Ca',c:'--saf',r:8,dur:2.6,track:1})+
+  [0,1,2].map(i=>`<animateTransform href="#suV${i}" attributeName="transform" type="translate" values="0,0;0,${[20,30,14][i]}" dur="1s" begin="indefinite" fill="freeze"/>`).join('')+MV('M342,240 L342,300 C400,300 520,300 640,300',{n:5,lbl:'I',c:'--blue',r:8,dur:3.2,track:1})+T(356,262,'insulin เข้าเลือด (ต้องมี β-cell เหลือ)',{s:11.5,w:700,a:'start',c:'--blue'}));
+ b+=G(3,DMV('0,0;0,0;-50,-50;-50,-50',3.4,PL(180,70,'glinide','--ok'),{rep:'indefinite'})+T(160,46,'จับ-ปล่อยเร็ว',{s:10.5,w:700,a:'middle',c:'--ok'})+
+  ZB(20,334,295,66,'--violet','Sulfonylurea: จับนาน',['หลั่งแรง ไม่ขึ้นกับมื้อ → น้ำตาลต่ำ น้ำหนักเพิ่ม'],{s:13.5,ss:11.5})+ZB(325,334,295,66,'--ok','Glinide: เร็ว-สั้น',['จับคนละตำแหน่ง → คุมน้ำตาลหลังอาหาร'],{s:13.5,ss:11.5}));
+ return b},steps:['ยาจับ <b>sulfonylurea receptor (SUR1)</b> ซึ่งเป็นส่วนหนึ่งของ <b>ATP-sensitive K⁺ channel</b> บน β-cell','channel ปิด K⁺ ออกไม่ได้ → เกิด <b>depolarization</b>','Ca²⁺ ไหลเข้า → vesicle <b>ปล่อย insulin</b> (ต้องมี β-cell เหลือ)','SU หลั่งแรงไม่ขึ้นกับมื้ออาหาร → <b>น้ำตาลต่ำ</b> • glinide จับคนละตำแหน่ง สั้นกว่า ใช้คุม<b>น้ำตาลหลังอาหาร</b>']};
+
+FIG.dmTzdMoA={title:'กลไก pioglitazone: PPAR-γ agonist',h:360,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(262,40)+R(16,30,236,214,'--ok-soft',{sc:'--ok',sw:3,rx:30})+T(134,54,'เซลล์เป้าหมาย',{s:13,w:800,a:'middle',c:'--ok'})+
+  `<ellipse cx="134" cy="150" rx="78" ry="54" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(134,118,'นิวเคลียส',{s:11,a:'middle',c:'--violet'})+
+  `<path d="M74,172 q10,-10 20,0 t20,0 t20,0 t20,0 t20,0 t20,0" style="fill:none;stroke:var(--violet);stroke-width:1.6"/>`+R(112,136,44,20,'--violet',{rx:5})+T(134,150,'PPAR-γ',{s:10,w:800,a:'middle',c:'--surface'})+
+  R(290,30,140,92,'--bad-soft',{sc:'--bad',sw:2.5,rx:22})+T(360,54,'กล้ามเนื้อ',{s:13,w:800,a:'middle',c:'--bad'})+
+  c12Liv(476,20,.7)+T(536,50,'ตับ',{s:13,w:800,a:'middle',c:'--saf'})+
+  c12Fat(318,176,1)+T(348,160,'ไขมัน',{s:13,w:800,a:'middle',c:'--agar'}));
+ b+=G(0,MV('M0,282 L60,282 C100,282 110,230 120,200 L130,164',{n:3,lbl:'Pio',c:'--ok',r:12,dur:3,track:1})+PULSE(134,146,22,'--violet')+MV('M170,140 C210,110 230,100 252,96',{n:3,c:'--violet',r:4,dur:1.6})+T(30,226,'จับ PPAR-γ → ยีนทำงาน',{s:11.5,w:700,a:'start',c:'--violet'}));
+ b+=G(0,MV('M536,96 L536,272 L640,272',{n:3,lbl:'G',c:'--agar',r:7.5,dur:2.6,track:1}),{hide:2});
+ b+=G(1,MV('M415,262 L415,128 C415,104 380,96 350,92',{n:4,lbl:'G',c:'--agar',r:7.5,dur:2.4,track:1})+T(360,76,'กลูโคสเข้า ↑',{s:12,w:700,a:'middle',c:'--bad'}));
+ b+=G(2,MV('M450,262 L450,230 C440,212 410,200 384,196',{n:3,lbl:'FA',c:'--saf',r:8,dur:2.4,track:1})+T(306,244,'เก็บ fatty acid ↑',{s:11,w:700,a:'start',c:'--agar'})+
+  MV('M536,96 L536,272 L640,272',{n:1,lbl:'G',c:'--agar',r:7.5,dur:5})+_NO(536,150,'--blue')+T(552,126,'สร้างกลูโคส ↓',{s:11.5,w:700,a:'start',c:'--saf'})+T(620,206,'= insulin',{s:12,w:800,a:'end',c:'--ok'})+T(620,222,'sensitizer',{s:12,w:800,a:'end',c:'--ok'}));
+ b+=G(3,`<rect x="0" y="258" width="640" height="48" style="fill:none;stroke:var(--blue);stroke-width:3">${AN('stroke-opacity','1;.2;1',1.2,{rep:'indefinite'})}</rect>`+MV('M640,284 L0,284',{n:5,lbl:'H₂O',c:'--blue',r:12,dur:3.6})+
+  T(16,326,'ADR: บวมน้ำ (fluid retention) → HF กำเริบ (ห้าม NYHA III–IV) • น้ำหนักเพิ่ม',{s:12,w:700,a:'start',c:'--bad'})+T(16,346,'กระดูกพรุน/หัก • มะเร็งกระเพาะปัสสาวะ (เฝ้าระวัง)',{s:12,a:'start',c:'--bad'}));
+ return b},steps:['Pioglitazone เข้าเซลล์ กระตุ้น <b>PPAR-γ</b> ในนิวเคลียส → ยีนทำงาน','กล้ามเนื้อนำกลูโคสเข้าเซลล์มากขึ้น','เนื้อเยื่อไขมันเก็บ fatty acid และสร้างไขมันมากขึ้น ตับสร้างกลูโคสลดลง = <b>insulin sensitizer</b>','ผลเสีย: <b>บวมน้ำ</b> (ระวัง HF NYHA III–IV) น้ำหนักเพิ่ม กระดูกพรุน มะเร็งกระเพาะปัสสาวะ']};
+
+FIG.dmAgiMoA={title:'กลไก α-glucosidase inhibitor ที่ลำไส้เล็ก',h:350,anim:1,dur:5200,body:()=>{let b='';const EZ=[131,283,435];
+ b+=G(0,R(0,20,640,100,'--agar-soft',{rx:0})+T(10,40,'ช่องลำไส้เล็ก (อาหาร)',{s:12,w:700,a:'start',c:'--agar'})+T(632,40,'→ ลำไส้ใหญ่',{s:11.5,w:700,a:'end',c:'--agar'})+
+  [0,1,2,3,4,5,6,7].map(i=>R(20+i*76,124,70,70,'--surface',{sc:'--agar',rx:8})).join('')+T(10,214,'เซลล์เยื่อบุลำไส้',{s:11,a:'start',c:'--ink2'})+VES(222,44)+
+  EZ.map(x=>`<path d="M${x-12},124 L${x-4},108 L${x+4},108 L${x+12},124" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`).join('')+T(330,214,'สีม่วง = α-glucosidase ที่ผิวเซลล์',{s:10.5,w:700,a:'middle',c:'--violet'})+
+  T(632,108,'S = แป้ง/ซูโครส  G = กลูโคส',{s:10.5,a:'end',c:'--ink2'}));
+ b+=G(0,MV('M0,74 L640,74',{n:6,lbl:'S',c:'--agar',r:9,dur:5}));
+ b+=G(1,EZ.map(x=>MV(`M${x},84 L${x},108 L${x},244 L640,244`,{n:2,lbl:'G',c:'--agar',r:7,dur:3,track:1})+PULSE(x,116,12,'--violet')).join('')+T(330,40,'เอนไซม์ย่อยเป็น monosaccharide → ดูดซึม',{s:11.5,w:700,a:'middle',c:'--violet'}),{hide:2});
+ b+=G(2,EZ.map(x=>DMV('0,-50',1,PL(x,100,'Aca','--blue'))+_NO(x,166,'--bad')).join('')+MV('M283,84 L283,244 L640,244',{n:1,lbl:'G',c:'--agar',r:7,dur:5})+T(330,40,'acarbose / voglibose แย่งจับเอนไซม์ (competitive)',{s:11.5,w:700,a:'middle',c:'--blue'}));
+ b+=G(3,[560,584,608,572,596].map((x,i)=>`<circle cx="${x}" cy="110" r="${5+i%3}" style="fill:none;stroke:var(--agar);stroke-width:2">${AN('cy','110;30',1.6+i*.2,{rep:'indefinite'})}${AN('opacity','1;0',1.6+i*.2,{rep:'indefinite'})}</circle>`).join('')+
+  T(20,292,'ดูดซึมกลูโคสช้า → ลดน้ำตาลหลังอาหาร • กินพร้อมคำแรก',{s:12,w:700,a:'start',c:'--ok'})+T(20,312,'แป้งที่ไม่ถูกย่อยถูกหมัก → ท้องอืด ผายลม ท้องเสีย',{s:12,a:'start',c:'--bad'})+T(20,332,'น้ำตาลต่ำจากยาอื่น: แก้ด้วยกลูโคสเท่านั้น (ซูโครสย่อยไม่ได้)',{s:12,w:700,a:'start',c:'--bad'}));
+ return b},steps:['แป้งจากอาหารต้องถูกย่อยเป็น monosaccharide ก่อนดูดซึม','เอนไซม์ <b>α-glucosidase</b> ที่ผิวลำไส้เล็กย่อยแป้ง → กลูโคสเข้าเลือด','<b>Acarbose, voglibose</b> ยับยั้งแบบแข่งขัน → ดูดซึมกลูโคสน้อยลง แป้งเลยไปลำไส้ใหญ่','ผล: <b>ลดน้ำตาลหลังอาหาร</b> • ADR ท้องอืด ผายลม • แก้น้ำตาลต่ำด้วย<b>กลูโคส</b>เท่านั้น']};
+
+FIG.dmIncMoA={title:'Incretin: GLP-1 RA และ DPP-4 inhibitor',h:330,anim:1,dur:5200,body:()=>{let b='';const GP='M84,236 L84,176 L500,176 C510,140 510,110 506,84';
+ b+=G(0,VES(150,44)+c12Gut(20,236,.7)+T(84,306,'ลำไส้ (หลังกินอาหาร)',{s:11.5,w:700,a:'middle',c:'--agar'})+c12Isl(440,24,.7)+T(600,34,'ตับอ่อน',{s:12,w:700,a:'end',c:'--agar'}));
+ b+=G(0,MV(GP,{n:4,lbl:'GLP',c:'--ok',r:11,dur:3.2,track:1})+T(100,222,'หลั่ง GLP-1, GIP',{s:11.5,w:700,a:'start',c:'--ok'}),{hide:2});
+ b+=G(1,MV('M520,80 L560,140 L560,164 L640,164',{n:4,lbl:'I',c:'--blue',r:8,dur:2.6,track:1})+T(578,128,'insulin ↑',{s:11.5,w:700,a:'start',c:'--blue'})+_NO(470,56,'--bad')+T(452,60,'glucagon ↓',{s:11.5,w:700,a:'end',c:'--bad'})+T(200,120,'เฉพาะเมื่อน้ำตาลสูง → น้ำตาลต่ำน้อย',{s:12,w:700,a:'start',c:'--blue'}),{hide:2});
+ b+=G(2,`<circle cx="300" cy="172" r="18" style="fill:var(--bad);stroke:var(--surface);stroke-width:2">${AN('r','18;14;18',.6,{rep:'indefinite'})}</circle>`+T(300,176,'DPP4',{s:9,w:800,a:'middle',c:'--surface'})+T(300,214,'DPP-4 สลาย GLP-1 ในไม่กี่นาที',{s:11.5,w:700,a:'middle',c:'--bad'}));
+ b+=G(2,MV('M84,236 L84,176 L290,176',{n:4,lbl:'GLP',c:'--ok',r:11,dur:2.4,track:1}),{hide:3});
+ b+=G(3,MV('M0,164 L500,164 C514,140 514,110 512,84',{n:3,lbl:'RA',c:'--violet',r:11,dur:3,track:1})+DMV('0,-90',1,PL(300,128,'DPP-4i','--blue'))+_NO(300,172,'--blue')+MV(GP,{n:3,lbl:'GLP',c:'--ok',r:11,dur:3.4})+
+  MV('M520,80 L560,140 L560,164 L640,164',{n:4,lbl:'I',c:'--blue',r:8,dur:2.6})+
+  T(180,240,'GLP-1 RA: ทน DPP-4 + ชะลอกระเพาะ อิ่มเร็ว → น้ำหนักลด',{s:12,w:700,a:'start',c:'--violet'})+T(180,262,'DPP-4i: ยับยั้งเอนไซม์ → GLP-1 ของร่างกายอยู่นาน',{s:12,w:700,a:'start',c:'--blue'})+T(180,280,'→ น้ำหนักเป็นกลาง',{s:12,a:'start',c:'--blue'}));
+ return b},steps:['กินอาหาร → ลำไส้หลั่ง <b>incretin</b> (GLP-1, GIP) เข้าเลือดไปที่ตับอ่อน','กระตุ้น β-cell หลั่ง insulin และลด glucagon จาก α-cell <b>เฉพาะเมื่อน้ำตาลสูง</b> → น้ำตาลต่ำน้อย','ปกติ <b>DPP-4</b> ในเลือดสลาย incretin เร็วมาก ไปไม่ถึงตับอ่อน','แก้ 2 ทาง: <b>GLP-1 RA</b> ดัดแปลงให้ทน DPP-4 (น้ำหนักลด) • <b>DPP-4 inhibitor</b> ยับยั้งเอนไซม์ (น้ำหนักเป็นกลาง)']};
+
+FIG.dmSgltMoA={title:'กลไก SGLT2 inhibitor ที่ท่อไตส่วนต้น',h:350,anim:1,dur:5200,body:()=>{let b='';const TP=[230,340,450];
+ b+=G(0,`<circle cx="70" cy="92" r="46" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/><path d="M44,92 q8,-18 16,0 t16,0 t16,0 M48,104 q8,-14 16,0 t16,0 t16,0" style="fill:none;stroke:var(--bad);stroke-width:2"/>`+T(70,156,'glomerulus',{s:11.5,w:700,a:'middle',c:'--blue'})+
+  R(116,66,510,52,'--blue-soft',{sc:'--blue',sw:2.5,rx:24})+T(380,58,'ท่อไตส่วนต้น (PCT)',{s:12,w:700,a:'middle',c:'--blue'})+VES(190,40,'เลือด (ดูดกลับ)',116,590)+
+  TP.map(x=>R(x-14,112,28,14,'--violet',{rx:4})).join('')+T(340,146,'SGLT2',{s:11,w:800,a:'middle',c:'--violet'}));
+ b+=G(0,MV('M0,40 C30,50 50,80 70,92 C90,92 110,92 150,92',{n:3,lbl:'G',c:'--agar',r:7.5,dur:2.4,track:1})+T(14,24,'กรองกลูโคสออกมา',{s:11.5,w:700,a:'start',c:'--agar'}));
+ b+=G(1,TP.map(x=>MV(`M${x-60},92 C${x-20},92 ${x},100 ${x},118 L${x},208 L590,208`,{n:2,lbl:'G',c:'--agar',r:7.5,dur:2.8,track:1})).join('')+T(140,178,'Na⁺ + กลูโคส ดูดกลับเกือบหมด',{s:11.5,w:700,a:'start',c:'--violet'}),{hide:2});
+ b+=G(2,TP.map(x=>DMV('0,-60',1,PL(x,108,'i','--ok'))+_NO(x,160,'--bad')).join('')+MV('M150,92 L600,92 C616,92 616,110 616,130 L616,300',{n:5,lbl:'G',c:'--agar',r:7.5,dur:3.4,track:1})+MV('M200,82 L600,82 C626,82 626,110 626,130 L626,300',{n:2,lbl:'H₂O',c:'--blue',r:11,dur:3.4})+
+  T(604,250,'ปัสสาวะมีกลูโคส',{s:12,w:700,a:'end',c:'--ok'})+T(604,266,'ไม่ขึ้นกับ insulin',{s:11,a:'end',c:'--ok'}));
+ b+=G(3,ZB(16,278,280,66,'--ok','ประโยชน์',['ลด CV event • ลดนอน รพ. HF • ชะลอ CKD'],{s:13.5,ss:11.5})+ZB(304,278,280,66,'--bad','ADR ตามกลไก',['ติดเชื้อทางเดินปัสสาวะ/อวัยวะเพศ • ขาดน้ำ • DKA'],{s:13.5,ss:11.5}));
+ return b},steps:['กลูโคสถูกกรองออกที่ glomerulus เข้าท่อไต','ปกติ <b>SGLT2</b> ที่ท่อไตส่วนต้นดูดกลับทั้งหมด คนปกติจึงไม่มีกลูโคสในปัสสาวะ','<b>SGLT2i</b> ปิดตัวขนส่ง → ขับกลูโคส (และน้ำ) ออกทางปัสสาวะ','ได้ประโยชน์ต่อ<b>หัวใจ ไต</b> แต่เสี่ยง<b>ติดเชื้อทางเดินปัสสาวะ/อวัยวะเพศ</b>และ <b>DKA</b>']};
+
+FIG.dmInsMoA={title:'Insulin จับ insulin receptor ที่เนื้อเยื่อเป้าหมาย',h:330,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(6,44)+R(40,70,560,176,'--bad-soft',{sc:'--bad',sw:3,rx:30})+T(586,232,'เซลล์กล้ามเนื้อ / ไขมัน / ตับ',{s:12,w:800,a:'end',c:'--bad'})+
+  `<path d="M160,84 l0,-14 m0,0 l-9,-12 m9,12 l9,-12" style="stroke:var(--blue);stroke-width:3.5;fill:none"/>`+T(176,98,'insulin receptor',{s:11,w:700,a:'start',c:'--blue'})+
+  `<g id="insG4"><circle cx="380" cy="180" r="14" style="fill:var(--surface);stroke:var(--ok);stroke-width:2.5"/><text x="380" y="184" font-size="9.5" font-weight="800" text-anchor="middle" style="fill:var(--ok)">G4</text></g>`+T(380,210,'GLUT-4 (ในเซลล์)',{s:10.5,a:'middle',c:'--ok'}));
+ b+=G(0,MV('M0,28 L120,28 C150,28 160,40 160,58',{n:3,lbl:'I',c:'--blue',r:8,dur:2.6,track:1})+PULSE(160,64,14,'--blue'));
+ b+=G(1,`<animateTransform href="#insG4" attributeName="transform" type="translate" values="0,0;0,-96" dur="1.2s" begin="indefinite" fill="freeze"/>`+MV('M166,90 C240,120 320,150 366,176',{n:4,c:'--violet',r:4,dur:1.6})+T(60,140,'signal → GLUT-4 ขึ้นผิวเซลล์',{s:11.5,w:700,a:'start',c:'--violet'})+
+  MV('M380,0 L380,84 C380,120 440,150 490,160',{n:4,lbl:'G',c:'--agar',r:7.5,dur:2.4,track:1}));
+ b+=G(2,[0,1,2,3,4].map(i=>`<circle cx="${500+i*16}" cy="${160+(i%2)*10}" r="6" style="fill:var(--ok)">${AN('opacity','0;1',.4+i*.3)}</circle>`).join('')+T(540,136,'glycogen',{s:11.5,w:700,a:'middle',c:'--ok'})+T(60,206,'น้ำตาลในเลือด ↓ ใช้เป็นพลังงาน',{s:11.5,w:700,a:'start',c:'--ok'})+T(60,222,'เก็บเป็น glycogen ไขมัน โปรตีน',{s:11.5,a:'start',c:'--ok'}));
+ b+=G(3,MV('M600,30 L600,90 C600,104 594,114 586,124',{n:4,lbl:'K',c:'--violet',r:7.5,dur:2.4,track:1})+T(584,100,'K⁺ เข้าเซลล์',{s:11.5,w:700,a:'end',c:'--violet'})+
+  T(20,276,'ADR: น้ำตาลต่ำ (rapid/short มี peak) • K⁺ ต่ำ (insulin ดัน K⁺ เข้าเซลล์)',{s:12,w:700,a:'start',c:'--bad'})+T(20,296,'น้ำหนักเพิ่ม (anabolic) • lipohypertrophy ที่จุดฉีด',{s:12,a:'start',c:'--bad'}));
+ return b},steps:['Insulin จับ <b>insulin receptor</b> ที่กล้ามเนื้อ ไขมัน ตับ','เกิด signal และ <b>GLUT-4</b> เลื่อนขึ้นผิวเซลล์ → กลูโคสเข้าเซลล์','น้ำตาลในเลือดลด กลูโคสถูกใช้หรือเก็บเป็น glycogen ไขมัน โปรตีน','ผลเสียตามกลไก: <b>น้ำตาลต่ำ K⁺ ต่ำ น้ำหนักเพิ่ม</b>']};
 
 /* ---- structure-page figures (schematic) ---- */
 FIG.dmInsStr={title:'โครงสร้าง insulin: 2 สายเชื่อมด้วย disulfide',h:270,body:()=>{let b='';
@@ -6987,6 +7096,727 @@ function start(){applyTheme(theme);$('#themeBtn').onclick=()=>{theme=THEMES[(THE
  window.addEventListener('popstate',e=>{CUR=e.state&&typeof e.state.h==='string'?e.state.h:null;route()});
  window.addEventListener('hashchange',()=>{try{const h=location.hash.replace('#','');if(h!==CUR){CUR=h;route()}}catch(e){}});route();paintSync();resumeSession()}
 try{window.claude?.hot?.snapshot?.(()=>({h:curHash()}))}catch(e){}
+/* ===== animated scenes ===== */
+/* ===== CAD animated scenes ===== */
+{const S=FIG.coronary.steps;const RCA='M150,62 C120,70 96,96 94,130',LAD='M150,62 C150,90 140,120 120,150',LCX='M160,64 C190,80 210,110 205,150';
+FIG.coronary={title:'หลอดเลือดหัวใจ และสมดุลออกซิเจน',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,PA('M90,150 C40,90 70,40 120,52 C140,56 152,70 158,82 C164,70 176,56 196,52 C246,40 276,90 226,150 L158,230 Z','--saf-soft',{sc:'--saf',sw:2.5})+
+  PA(RCA,'none',{sc:'--saf',sw:5})+PA(LAD,'none',{sc:'--saf',sw:5})+PA(LCX,'none',{sc:'--saf',sw:5})+T(30,40,'RCA',{s:13,w:700,c:'--saf'})+T(118,180,'LAD',{s:13,w:700,c:'--saf'})+T(212,170,'LCx',{s:13,w:700,c:'--saf'})+
+  MV(RCA,{n:3,c:'--bad',r:4,dur:1.6})+MV(LCX,{n:3,c:'--bad',r:4,dur:1.6})+
+  `<g id="cnSee">${L(330,180,610,180,'--ink2',{w:4})}${R(330,124,120,50,'--blue-soft',{sc:'--blue'})}${T(390,146,'O₂ supply',{s:14,w:700,a:'middle',c:'--blue'})}${T(390,164,'เลือดไปเลี้ยง',{s:11.5,a:'middle',c:'--ink2'})}${R(490,124,120,50,'--saf-soft',{sc:'--saf'})}${T(550,146,'O₂ demand',{s:14,w:700,a:'middle',c:'--saf'})}${T(550,164,'งานของหัวใจ',{s:11.5,a:'middle',c:'--ink2'})}</g>`+PA('M470,182 L452,214 L488,214 Z','--ink2'));
+ b+=G(0,MV(LAD,{n:3,c:'--bad',r:4,dur:1.6}),{hide:1});
+ b+=G(1,`<ellipse cx="140" cy="112" rx="9" ry="6" style="fill:var(--agar)"/>`+MV(LAD,{n:1,c:'--bad',r:4,dur:3})+`<ellipse cx="118" cy="176" rx="30" ry="16" style="fill:var(--bad);opacity:0">${AN('opacity','0;.35;0',1.6,{rep:'indefinite'})}</ellipse>`+
+  T(40,262,'Plaque ตีบ → เลือดไปไม่พอเมื่อออกแรง',{s:13,w:700,c:'--ink2'})+T(40,282,'= Stable angina (CCS)',{s:12.5,c:'--muted'}),{hide:2});
+ b+=G(2,`<circle cx="140" cy="112" r="6" style="fill:var(--saf)">${AN('r','6;13',2)}</circle>`+[0,1,2].map(i=>MV(`M${60+i*10},${80+i*6} C100,90 120,100 136,110`,{n:1,c:'--agar',r:4,dur:1.2+i*.3})).join('')+
+  `<ellipse cx="118" cy="176" rx="34" ry="18" style="fill:var(--bad);opacity:.5"/>`+T(40,302,'Plaque แตก + ลิ่มเลือด → ACS',{s:13,w:700,c:'--saf'}));
+ b+=G(3,`<animateTransform href="#cnSee" attributeName="transform" type="rotate" values="0 470 182;9 470 182" dur="1.4s" begin="indefinite" fill="freeze"/>`+
+  T(330,40,'Demand เพิ่มเมื่อ: HR↑ แรงบีบ↑',{s:12.5,c:'--saf'})+T(330,58,'preload↑ afterload↑ (BP สูง)',{s:12.5,c:'--saf'})+T(330,240,'Supply ลดเมื่อ: ตีบ, ลิ่มเลือด,',{s:12.5,c:'--blue'})+T(330,258,'หลอดเลือดหดเกร็ง, โลหิตจาง',{s:12.5,c:'--blue'})+T(330,290,'ยาทุกตัว: ลด demand หรือเพิ่ม supply',{s:13,w:700,c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.antiAng.steps;
+const MET=(id,to)=>R(16,250,200,16,'--surface2',{rx:8})+`<rect x="16" y="250" width="200" height="16" rx="8" style="fill:var(--saf)"><animate attributeName="width" values="200;${to}" dur="1.6s" begin="indefinite" fill="freeze"/></rect>`+T(16,286,'O₂ demand ของหัวใจ ↓',{s:11.5,w:700,a:'start',c:'--saf'});
+const COLT=(c,t,lines)=>T(330,40,t,{s:15,w:800,a:'start',c})+lines.map((l,i)=>T(330,66+i*20,l,{s:12,a:'start',c:'--ink2'})).join('');
+FIG.antiAng={title:'ยาต้านขาดเลือดแต่ละกลุ่มลด demand ตรงไหน',h:300,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,HEART(120,120,2,'--saf',1.7)+DMV('-60,-40',1,PL(200,52,'β-blocker','--saf'))+T(120,200,'HR↓ แรงบีบ↓ คลายตัวนานขึ้น',{s:12,w:700,a:'middle',c:'--saf'})+MET(0,120)+
+  COLT('--saf','β-blocker',['HR↓ แรงบีบ↓','เวลาคลายตัวยาว → เลือดเข้าหัวใจมากขึ้น','ยาตัวแรก CCS (เป้า HR 55–60)','ห้าม: vasospastic angina']),{hide:1});
+ b+=G(1,R(20,90,260,50,'--surface2',{sc:'--bad',rx:25})+`<rect x="30" y="111" width="240" height="8" rx="4" style="fill:var(--bad)"><animate attributeName="y" values="111;98" dur="1.4s" begin="indefinite" fill="freeze"/><animate attributeName="height" values="8;34" dur="1.4s" begin="indefinite" fill="freeze"/></rect>`+
+  T(150,206,'หลอดเลือด coronary หดเกร็ง → คลาย',{s:12,w:700,a:'middle',c:'--blue'})+MV('M60,40 L60,90',{n:2,lbl:'Ca',c:'--saf',r:9,dur:1.4})+NOX(60,70,'--blue')+DMV('0,-40',1,PL(120,170,'CCB','--blue'))+MET(1,140)+
+  COLT('--blue','CCB',['afterload↓','คลายหลอดเลือดหดเกร็ง (spasm)','non-DHP: HR↓ ด้วย','ยาหลัก vasospastic (Prinzmetal) angina']),{hide:2});
+ b+=G(2,`<line x1="20" y1="80" x2="280" y2="80" style="stroke:var(--blue);stroke-width:4"><animate attributeName="y1" values="80;60" dur="1.4s" begin="indefinite" fill="freeze"/><animate attributeName="y2" values="80;60" dur="1.4s" begin="indefinite" fill="freeze"/></line><line x1="20" y1="140" x2="280" y2="140" style="stroke:var(--blue);stroke-width:4"><animate attributeName="y1" values="140;160" dur="1.4s" begin="indefinite" fill="freeze"/><animate attributeName="y2" values="140;160" dur="1.4s" begin="indefinite" fill="freeze"/></line>`+
+  T(150,186,'หลอดเลือดดำขยาย → เลือดกลับหัวใจน้อยลง',{s:12,w:700,a:'middle',c:'--violet'})+MV('M20,110 L280,110',{n:3,c:'--bad',r:5,dur:3})+MV('M0,40 L140,40 L150,100',{n:2,lbl:'NO',c:'--saf',r:11,dur:1.6})+MET(2,130)+
+  COLT('--violet','Nitrate',['venodilation → preload↓','ขยาย coronary','SL: หยุดอาการเฉียบพลัน','เว้นช่วงปลอดยา 8–12 ชม./วัน']),{hide:3});
+ b+=G(3,HEART(120,120,2,'--saf',1.7)+`<circle cx="170" cy="78" r="9" style="fill:var(--agar)">${AN('opacity','1;.1;1',1.7,{rep:'indefinite'})}</circle>`+T(186,72,'SA node (I_f)',{s:11.5,w:700,a:'start',c:'--agar'})+DMV('60,-30',1,PL(210,46,'ivabradine','--agar'))+T(120,200,'HR↓ อย่างเดียว ไม่ลดแรงบีบ ไม่ลด BP',{s:12,w:700,a:'middle',c:'--agar'})+MET(3,130)+
+  COLT('--agar','Ivabradine',['ปิด I_f (funny current) ที่ SA node','HR↓ อย่างเดียว','ADR: phosphenes (เห็นแสงวาบ)','อื่น: ranolazine (QT), trimetazidine, nicorandil']));
+ return b},steps:S};}
+
+{const S=FIG.platelet.steps;
+FIG.platelet={title:'เกล็ดเลือด 3 ช่องทาง และยาที่ปิด',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<ellipse cx="320" cy="300" rx="150" ry="34" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(320,312,'เกล็ดเลือดอีกตัว',{s:11,a:'middle',c:'--violet'})+
+  C(320,140,92,'--violet-soft',{sc:'--violet',sw:2.5})+T(320,150,'เกล็ดเลือด',{s:15,w:700,a:'middle',c:'--violet'})+
+  `<circle cx="266" cy="110" r="18" style="fill:var(--surface);stroke:var(--saf);stroke-width:2"/>`+T(266,114,'COX-1',{s:9.5,w:800,a:'middle',c:'--saf'})+
+  R(398,110,24,16,'--blue',{rx:4})+T(430,104,'P2Y12',{s:11,w:800,a:'start',c:'--blue'})+R(304,226,32,14,'--agar',{rx:4})+T(346,224,'GP IIb/IIIa',{s:11,w:800,a:'start',c:'--agar'})+
+  MV('M60,60 C160,60 220,80 250,102',{n:3,lbl:'AA',c:'--ink2',r:10,dur:2,track:1})+T(30,40,'Arachidonic acid',{s:12,w:700,a:'start'}));
+ b+=G(0,MV('M262,128 C230,200 160,210 80,200',{n:3,lbl:'TX',c:'--saf',r:10,dur:2,track:1})+T(20,230,'TXA₂ กระตุ้นเกล็ดเลือด',{s:11.5,w:700,a:'start',c:'--saf'}),{hide:1});
+ b+=G(1,DMV('-100,-60',1,PL(220,150,'aspirin','--saf'))+NOX(266,110,'--saf')+T(20,124,'ปิด COX-1 ถาวร',{s:11.5,w:700,c:'--saf'})+T(20,140,'(ตลอดอายุเกล็ดเลือด 7–10 วัน)',{s:11.5,c:'--ink2'}));
+ b+=G(2,MV('M640,50 C540,50 460,80 424,110',{n:3,lbl:'ADP',c:'--blue',r:11,dur:2,track:1})+DMV('100,-40',1,PL(470,140,'P2Y12i','--blue'))+NOX(410,118,'--blue')+T(450,174,'clopidogrel, prasugrel,',{s:12,w:700,c:'--blue'})+T(450,190,'ticagrelor',{s:12,w:700,c:'--blue'}));
+ b+=G(3,[290,320,350].map((x,i)=>`<line x1="${x}" y1="240" x2="${x}" y2="268" style="stroke:var(--agar);stroke-width:5;stroke-linecap:round"><animate attributeName="stroke-opacity" values="1;.2;1" dur="${1+i*.2}s" begin="indefinite" repeatCount="indefinite"/></line>`).join('')+
+  T(470,254,'จับ fibrinogen เชื่อมเกล็ดเลือด',{s:11.5,w:700,a:'start',c:'--agar'})+T(470,270,'= ทางสุดท้าย',{s:11,a:'start',c:'--ink2'})+DMV('120,0',1,PL(190,254,'tirofiban','--agar'))+NOX(240,254,'--agar'));
+ return b},steps:S};}
+
+{const S=FIG.coag.steps;
+const FL=(n)=>MV('M180,62 L250,62',{n,lbl:'X',c:'--ink2',r:9,dur:1.4})+MV('M320,84 L320,130',{n,lbl:'Xa',c:'--saf',r:10,dur:1.4})+MV('M390,152 L460,152',{n,lbl:'IIa',c:'--saf',r:10,dur:1.4});
+const FIB=(op)=>`<g opacity="${op}">${[0,1,2,3].map(i=>`<line x1="${470+i*36}" y1="${186}" x2="${494+i*36}" y2="${196}" style="stroke:var(--agar);stroke-width:3"/><line x1="${470+i*36}" y1="${196}" x2="${494+i*36}" y2="${186}" style="stroke:var(--agar);stroke-width:3"/>`).join('')}</g>`;
+FIG.coag={title:'Anticoagulant ใน ACS ออกฤทธิ์ที่ไหน',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(40,40,140,44,'--surface2',{sc:'--line'})+T(110,67,'Factor X',{s:14,w:700,a:'middle'})+R(250,40,140,44,'--saf-soft',{sc:'--saf'})+T(320,67,'Factor Xa',{s:14,w:700,a:'middle',c:'--saf'})+T(330,112,'Prothrombin →',{s:12,c:'--muted'})+
+  R(250,130,140,44,'--saf-soft',{sc:'--saf'})+T(320,157,'Thrombin (IIa)',{s:14,w:700,a:'middle',c:'--saf'})+R(460,130,160,44,'--agar-soft',{sc:'--agar'})+T(540,157,'Fibrinogen → Fibrin',{s:13,w:700,a:'middle',c:'--agar'}));
+ b+=G(0,FL(3)+FIB(1)+T(470,214,'fibrin = ลิ่มเลือด',{s:11,w:700,a:'start',c:'--agar'}),{hide:1});
+ b+=G(1,R(20,210,190,92,'--blue-soft',{sc:'--blue'})+T(30,232,'UFH (+antithrombin)',{s:13,w:700,c:'--blue'})+T(30,252,'ยับยั้ง IIa = Xa',{s:12,c:'--ink2'})+T(30,270,'ติดตาม aPTT • HIT',{s:12,c:'--ink2'})+T(30,288,'ไตเสื่อมใช้ได้',{s:12,c:'--ink2'}));
+ b+=G(1,DMV('-120,40',1,PL(200,110,'UFH+AT','--blue'))+NOX(320,40,'--blue')+NOX(250,152,'--blue')+FL(1),{hide:2});
+ b+=G(2,R(225,210,190,92,'--violet-soft',{sc:'--violet'})+T(235,232,'Enoxaparin (LMWH)',{s:13,w:700,c:'--violet'})+T(235,252,'Xa > IIa (3:1)',{s:12,c:'--ink2'})+T(235,270,'SC ไม่ต้องติดตาม',{s:12,c:'--ink2'})+T(235,288,'CrCl <30 → วันละครั้ง',{s:12,c:'--ink2'}));
+ b+=G(2,DMV('-120,40',1,PL(200,110,'enoxaparin','--violet'))+NOX(320,40,'--violet')+`<g opacity=".45">${NOX(250,152,'--violet')}</g>`+FL(1)+FIB(.5),{hide:3});
+ b+=G(3,R(430,210,190,92,'--agar-soft',{sc:'--agar'})+T(440,232,'Fondaparinux',{s:13,w:700,c:'--agar'})+T(440,252,'Xa อย่างเดียว',{s:12,c:'--ink2'})+T(440,270,'ห้ามใช้เดี่ยวช่วง PCI',{s:12,c:'--ink2'})+T(440,288,'ห้าม CrCl <30',{s:12,c:'--ink2'})+
+  DMV('120,40',1,PL(440,40,'fonda','--agar'))+NOX(320,40,'--agar')+FL(1)+FIB(.5));
+ return b},steps:S};}
+
+/* ===== HF animated scenes ===== */
+const SARC=(x,y,id)=>`<g id="${id}" transform="translate(${x},${y})">${[0,1,2,3].map(i=>`<rect x="${i*22}" y="0" width="14" height="8" rx="2" style="fill:var(--bad);opacity:.7"/>`).join('')}</g>`;
+const VESSEL=(x,y,w,id,c='--bad',h0=14)=>R(x,y-14,w,28,'--surface2',{sc:c,rx:14})+`<rect id="${id}" x="${x+8}" y="${y-h0/2}" width="${w-16}" height="${h0}" rx="${h0/2}" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:1"/>`;
+const WIDEN=(id,y,h0,h1)=>`<animate href="#${id}" attributeName="y" values="${y-h0/2};${y-h1/2}" dur="1.4s" begin="indefinite" fill="freeze"/><animate href="#${id}" attributeName="height" values="${h0};${h1}" dur="1.4s" begin="indefinite" fill="freeze"/>`;
+
+{const S=FIG.hfCycle.steps;const CIR='M320,52 A120,120 0 1,1 319.9,52';
+FIG.hfCycle={title:'วงจรอุบาทว์ของหัวใจล้มเหลว และจุดที่ยาตัดวงจร',h:350,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,`<circle cx="320" cy="172" r="120" style="fill:none;stroke:var(--line);stroke-width:10"/>`+R(390,150,130,44,'--surface2',{sc:'--saf'})+T(455,177,'CO ↓',{s:14,w:800,a:'middle',c:'--saf'})+
+  T(624,340,'เหนื่อย อ่อนเพลีย บวมน้ำ',{s:12.5,w:700,a:'middle',c:'--saf'}));
+ b+=G(0,HEART(320,56,1,'--saf',2.2)+MV(CIR,{n:4,c:'--saf',r:6,dur:8}),{hide:2});
+ b+=G(1,R(250,270,140,44,'--bad-soft',{sc:'--bad'})+T(320,290,'Sympathetic + RAAS',{s:12,w:800,a:'middle',c:'--bad'})+T(320,306,'ชดเชยระยะสั้น',{s:11,a:'middle',c:'--bad'}));
+ b+=G(2,HEART(320,56,1.25,'--saf',.7)+MV(CIR,{n:8,c:'--bad',r:7,dur:4})+R(110,140,160,70,'--bad-soft',{sc:'--bad'})+T(190,160,'afterload ↑ preload ↑',{s:11.5,w:800,a:'middle',c:'--bad'})+T(190,178,'Na/น้ำคั่ง',{s:11,a:'middle',c:'--bad'})+T(190,196,'remodeling',{s:11.5,w:800,a:'middle',c:'--bad'})+T(410,64,'หัวใจโตขึ้น แย่ลง',{s:11.5,w:700,a:'start',c:'--bad'}));
+ b+=G(3,DMV('0,60',1,PL(254,236,'β-blocker','--blue'))+DMV('0,60',1,PL(386,236,'ACEI/ARB/ARNI','--blue'))+DMV('-60,0',1,PL(150,110,'MRA','--violet'))+NOX(214,226,'--blue')+NOX(426,226,'--blue')+NOX(200,82,'--violet')+
+  T(16,30,'ยาลดตาย = ตัดวงจร + SGLT2i',{s:12.5,w:800,a:'start',c:'--blue'})+T(624,30,'diuretic: แค่ลดอาการบวม',{s:12,w:700,a:'end',c:'--muted'}));
+ return b},steps:S};}
+
+{const S=FIG.hfArniMoA.steps;
+const NPgood=(n=3)=>MV('M100,60 L520,60',{n,lbl:'NP',c:'--ok',r:10,dur:2.6,track:1});
+const NPeat=(n=3)=>MV('M140,62 C220,64 290,80 316,108',{n,lbl:'NP',c:'--ok',r:10,dur:2});
+const RA=(n=3)=>MV('M110,214 L170,214',{n,lbl:'A1',c:'--agar',r:9,dur:1.4})+MV('M214,214 L282,214',{n,lbl:'A2',c:'--bad',r:9,dur:1.4})+MV('M326,214 L410,214',{n,lbl:'A2',c:'--bad',r:9,dur:1.4});
+FIG.hfArniMoA={title:'กลไก ARNI เทียบ ACEI และ ARB',h:340,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,HEART(60,62,.9,'--saf',.9)+T(60,104,'ANP / BNP',{s:12,w:800,a:'middle',c:'--ok'})+R(520,32,104,58,'--ok-soft',{sc:'--ok'})+T(572,56,'ขยายหลอดเลือด',{s:11,w:800,a:'middle',c:'--ok'})+T(572,74,'ขับ Na • ลด remodeling',{s:9.5,a:'middle',c:'--ok'})+
+  `<circle cx="330" cy="122" r="20" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2"/>`+T(330,126,'NEP',{s:11,w:800,a:'middle',c:'--agar'})+T(360,140,'neprilysin สลาย NP, BK, Ang II',{s:11,a:'start',c:'--agar'})+NPgood(2));
+ b+=G(0,NPeat(),{hide:1});
+ b+=G(1,DMV('0,-60',1,PL(330,166,'sacubitril','--blue'))+NOX(330,122,'--blue')+NPgood(5)+T(16,150,'NP อยู่นานขึ้น',{s:12,w:800,a:'start',c:'--ok'})+MV('M346,130 C360,160 340,190 310,206',{n:2,lbl:'A2',c:'--bad',r:9,dur:2})+T(16,168,'แต่ Ang II ไม่ถูกสลาย → ต้องปิด AT1 คู่',{s:11.5,a:'start',c:'--bad'}));
+ b+=G(2,R(40,196,70,36,'--surface2',{sc:'--line'})+T(75,219,'Ang I',{s:12,w:700,a:'middle'})+`<circle cx="192" cy="214" r="20" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2"/>`+T(192,218,'ACE',{s:11,w:800,a:'middle',c:'--blue'})+R(282,196,44,36,'--bad-soft',{sc:'--bad'})+T(304,219,'A II',{s:11,w:800,a:'middle',c:'--bad'})+
+  `<path d="M420,232 l0,-14 m0,0 l-8,-10 m8,10 l8,-10" style="stroke:var(--bad);stroke-width:3;fill:none"/>`+T(420,252,'AT1',{s:11,w:800,a:'middle',c:'--bad'})+R(450,190,174,52,'--bad-soft',{sc:'--bad'})+T(537,210,'หลอดเลือดหด • เก็บ Na',{s:11,w:800,a:'middle',c:'--bad'})+T(537,228,'remodeling',{s:11,a:'middle',c:'--bad'}));
+ b+=G(2,RA(),{hide:3});
+ b+=G(3,DMV('0,60',1,PL(192,268,'ACEI','--violet'))+NOX(192,214,'--violet')+MV('M120,290 L300,290',{n:4,lbl:'BK',c:'--bad',r:9,dur:2})+T(310,294,'bradykinin สะสม → ไอ',{s:11.5,w:700,a:'start',c:'--bad'})+DMV('0,30',1,PL(420,256,'ARB','--ok'))+NOX(420,214,'--ok')+MV('M110,214 L170,214',{n:2,lbl:'A1',c:'--agar',r:9,dur:1.4}),{hide:4});
+ b+=G(4,NOX(420,214,'--blue')+MV('M110,214 L170,214',{n:2,lbl:'A1',c:'--agar',r:9,dur:1.4})+MV('M214,214 L400,214',{n:3,lbl:'A2',c:'--bad',r:9,dur:1.6})+R(16,262,608,64,'--blue-soft',{sc:'--blue'})+T(320,286,'ARNI = sacubitril + valsartan',{s:13,w:800,a:'middle',c:'--blue'})+T(320,306,'ห้ามใช้ร่วม ACEI: bradykinin สะสม 2 ทาง → angioedema',{s:12,w:700,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.hfBbMoA.steps;
+FIG.hfBbMoA={title:'กลไก β-blocker ใน HF',h:290,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,20,150,56,'--bad-soft',{sc:'--bad'})+T(91,44,'Sympathetic ↑',{s:13,w:800,a:'middle',c:'--bad'})+T(91,62,'หลั่ง norepinephrine',{s:10.5,a:'middle',c:'--bad'})+KID(470,150,.5,'--agar')+T(488,236,'ไต (JG cell)',{s:11.5,w:700,a:'middle',c:'--agar'})+
+  MV('M166,48 C230,60 260,80 290,96',{n:3,lbl:'NE',c:'--bad',r:10,dur:1.6,track:1})+MV('M120,76 C200,180 360,200 452,190',{n:3,lbl:'NE',c:'--bad',r:10,dur:2.2,track:1}));
+ b+=G(0,HEART(340,110,1.4,'--saf',.5)+T(410,60,'HR ↑ บีบแรง ใช้ O₂ มาก',{s:11.5,w:700,a:'start',c:'--saf'}),{hide:3});
+ b+=G(1,MV('M520,190 L620,190',{n:3,lbl:'renin',c:'--agar',r:14,dur:1.8,track:1})+T(560,170,'renin ↑',{s:11.5,w:800,a:'middle',c:'--agar'}),{hide:3});
+ b+=G(2,[[320,100],[350,126],[336,140]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="5" style="fill:var(--ink2);opacity:0">${AN('opacity','0;.8',1+i*.4)}</circle>`).join('')+T(410,80,'catecholamine เป็นพิษ → remodeling',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:3});
+ b+=G(3,HEART(340,110,1.4,'--saf',1.5)+DMV('0,-40',1,PL(286,74,'BB','--blue'))+DMV('0,-40',1,PL(450,170,'BB','--blue'))+NOX(296,98,'--blue')+NOX(440,190,'--blue')+
+  R(16,236,608,46,'--blue-soft',{sc:'--blue'})+T(320,256,'β-blocker ปิด β1: HR ↓ • ลด renin • ป้องกันพิษ catecholamine → ลด remodeling ลดตาย',{s:11.5,w:800,a:'middle',c:'--blue'})+T(320,274,'ช่วงแรกอาจเหนื่อยขึ้นชั่วคราว',{s:11,a:'middle',c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.hfMraMoA.steps;
+FIG.hfMraMoA={title:'กลไก MRA',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(250,14,140,50,'--agar-soft',{sc:'--agar'})+T(320,36,'adrenal',{s:12,w:800,a:'middle',c:'--agar'})+T(320,54,'aldosterone ↑ ใน HF',{s:10.5,a:'middle',c:'--agar'})+
+  R(16,110,250,110,'--blue-soft',{sc:'--blue',rx:20})+T(141,128,'ไต: collecting duct',{s:12,w:800,a:'middle',c:'--blue'})+`<circle cx="141" cy="170" r="12" style="fill:var(--agar)"/>`+T(141,174,'MR',{s:9,w:800,a:'middle',c:'--surface'})+
+  HEART(500,170,1.5,'--saf',.9)+`<circle cx="500" cy="160" r="12" style="fill:var(--agar)"/>`+T(500,164,'MR',{s:9,w:800,a:'middle',c:'--surface'})+T(500,232,'หัวใจ',{s:12,w:800,a:'middle',c:'--saf'}));
+ b+=G(0,MV('M260,64 C200,100 160,130 146,158',{n:3,lbl:'Ald',c:'--agar',r:11,dur:2,track:1})+MV('M380,64 C440,100 480,130 496,148',{n:3,lbl:'Ald',c:'--agar',r:11,dur:2,track:1}),{hide:3});
+ b+=G(1,MV('M30,200 C80,190 110,180 130,172',{n:3,lbl:'Na',c:'--blue',r:9,dur:1.6})+MV('M152,172 C190,190 220,200 260,206',{n:3,lbl:'K',c:'--violet',r:8,dur:1.6})+T(141,242,'ดูด Na กลับ (บวม) ขับ K ทิ้ง',{s:11.5,w:700,a:'middle',c:'--blue'}),{hide:3});
+ b+=G(2,[[478,190],[520,186],[498,206],[530,150]].map(([x,y],i)=>`<path d="M${x-6},${y} l12,0 M${x},${y-6} l0,12" style="stroke:var(--ink2);stroke-width:2.5;opacity:0">${AN('opacity','0;.9',.8+i*.4)}</path>`).join('')+T(500,252,'พังผืด (fibrosis) → remodeling',{s:11.5,w:700,a:'middle',c:'--bad'}),{hide:3});
+ b+=G(3,DMV('-80,-60',1,PL(141,148,'spironolactone','--violet'))+NOX(141,170,'--violet')+DMV('80,-60',1,PL(560,110,'eplerenone','--violet'))+NOX(500,160,'--violet')+
+  MV('M141,186 L141,230 L300,280',{n:3,lbl:'Na',c:'--blue',r:9,dur:2})+`<circle cx="100" cy="200" r="9" style="fill:var(--violet)">${AN('r','9;14',2)}</circle>`+T(100,204,'K',{s:9,w:800,a:'middle',c:'--surface'})+
+  T(320,300,'ลดพังผืด ลดตาย • ขับ Na • เก็บ K⁺ → ระวัง K สูง ติดตาม K',{s:12,w:800,a:'middle',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.hfSgltMoA.steps;const TP=[250,350,450];
+FIG.hfSgltMoA={title:'กลไก SGLT2 inhibitor',h:280,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,40,560,52,'--blue-soft',{sc:'--blue',sw:2.5,rx:24})+T(296,32,'ท่อไตส่วนต้น (PCT)',{s:12,w:700,a:'middle',c:'--blue'})+VES(130,36,'เลือด',16,576)+TP.map(x=>R(x-14,86,28,14,'--saf',{rx:4})).join('')+T(350,118,'SGLT2',{s:10.5,w:800,a:'middle',c:'--saf'})+
+  MV('M16,62 L120,62',{n:3,lbl:'G',c:'--agar',r:8,dur:1.6})+MV('M16,74 L120,74',{n:3,lbl:'Na',c:'--blue',r:8,dur:1.6}));
+ b+=G(1,TP.map(x=>MV(`M${x-60},66 C${x-20},66 ${x},76 ${x},94 L${x},150 L576,150`,{n:2,lbl:'G',c:'--agar',r:8,dur:2.6})+MV(`M${x-50},72 C${x-16},74 ${x+6},82 ${x+6},96 L${x+6},156 L576,156`,{n:2,lbl:'Na',c:'--blue',r:8,dur:2.8})).join(''),{hide:2});
+ b+=G(2,TP.map(x=>DMV('0,-60',1,PL(x,80,'i','--ok'))+NOX(x,116,'--bad')).join('')+MV('M120,62 L576,62 C600,62 610,80 610,120 L610,270',{n:4,lbl:'G',c:'--agar',r:8,dur:3})+MV('M120,76 L576,76 C596,76 620,90 620,130 L620,270',{n:4,lbl:'Na',c:'--blue',r:8,dur:3.2})+T(600,200,'ปัสสาวะ: glucose + Na⁺ + น้ำ',{s:11.5,w:700,a:'end',c:'--ok'}));
+ b+=G(3,HEART(80,220,1.1,'--saf',1.2)+T(130,206,'preload ↓ → หัวใจทำงานเบาลง',{s:12,w:800,a:'start',c:'--blue'})+T(130,226,'ลดนอน รพ. ได้ทุก EF • มีหรือไม่มีเบาหวานก็ได้ผล',{s:11.5,a:'start',c:'--blue'}));
+ return b},steps:S};}
+
+{const S=FIG.hfDiuMoA.steps;
+const SEG=[['PCT',20,140,'~65%','--ink2'],['Loop of Henle',182,150,'NKCC2 ~25%','--bad'],['DCT',354,120,'NCC ~5%','--agar'],['Collecting duct',496,124,'','--ink2']];
+const RE=(x,c,n=2)=>MV(`M${x},88 L${x},128`,{n,lbl:'Na',c,r:8,dur:1.2});
+FIG.hfDiuMoA={title:'ยาขับปัสสาวะออกฤทธิ์ตรงไหน',h:250,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,56,608,34,'--blue-soft',{sc:'--blue',rx:17})+SEG.map(([t,x,w,s,c])=>T(x+w/2,40,t,{s:12,w:800,a:'middle',c})+(s?T(x+w/2,148,s,{s:10.5,a:'middle',c:'--ink2'}):'')).join('')+T(620,110,'→ ปัสสาวะ',{s:11,w:700,a:'end',c:'--blue'})+
+  MV('M16,73 L624,73',{n:6,lbl:'Na',c:'--blue',r:8,dur:5})+RE(90,'--ink2',3));
+ b+=G(0,RE(257,'--bad')+RE(414,'--agar'),{hide:1});
+ b+=G(1,DMV('0,60',1,PL(257,176,'furosemide','--bad'))+NOX(257,110,'--bad')+T(257,206,'ขับน้ำแรงที่สุด',{s:11.5,w:800,a:'middle',c:'--bad'})+T(257,222,'torsemide • bumetanide',{s:10.5,a:'middle',c:'--ink2'})+MV('M16,66 L624,66',{n:4,lbl:'Na',c:'--blue',r:8,dur:3.6}));
+ b+=G(1,RE(414,'--agar'),{hide:2});
+ b+=G(2,DMV('0,60',1,PL(414,176,'thiazide','--agar'))+NOX(414,110,'--agar')+T(470,206,'HCTZ • metolazone: เสริม loop ที่ดื้อยา',{s:11.5,w:800,a:'middle',c:'--agar'})+T(470,222,'(sequential nephron blockade)',{s:10.5,a:'middle',c:'--ink2'})+MV('M16,80 L624,80',{n:4,lbl:'Na',c:'--blue',r:8,dur:3}));
+ return b},steps:S};}
+
+{const S=FIG.hfIvaMoA.steps;
+const beat=(w,n)=>{let d='M40,200';let x=40;for(let i=0;i<n;i++){d+=` L${x+w-40},150 L${x+w-32},70 L${x+w},200`;x+=w}return d};
+const P1=beat(110,5),P2=beat(180,3);
+FIG.hfIvaMoA={title:'กลไก ivabradine ที่ SA node',h:260,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,L(40,210,620,210,'--line',{w:2})+`<line x1="40" y1="150" x2="620" y2="150" style="stroke:var(--muted);stroke-width:1.5;stroke-dasharray:5 5"/>`+T(624,146,'threshold',{s:10.5,a:'end',c:'--muted'})+T(40,240,'เวลา →',{s:11,a:'start',c:'--muted'})+
+  R(40,6,280,34,'--violet-soft',{sc:'--violet'})+T(180,28,'I_f (funny current) ทำให้ phase 4 ชันขึ้น',{s:11.5,w:800,a:'middle',c:'--violet'}));
+ b+=G(0,PA(P1,'none',{sc:'--saf',sw:3})+MV(P1,{n:1,c:'--saf',r:7,dur:4.2})+T(620,64,'HR สูง',{s:12,w:800,a:'end',c:'--saf'}),{hide:2});
+ b+=G(1,[0,1,2,3,4].map(i=>`<line x1="${40+i*110}" y1="200" x2="${110+i*110}" y2="150" style="stroke:var(--violet);stroke-width:6;opacity:.4"/>`).join('')+T(60,186,'phase 4 ชัน → ยิงเร็ว',{s:11.5,w:700,a:'start',c:'--violet'}),{hide:2});
+ b+=G(2,PA(P2,'none',{sc:'--blue',sw:3})+MV(P2,{n:1,c:'--blue',r:7,dur:4.2})+DMV('0,-30',1,PL(470,28,'ivabradine','--blue'))+T(620,64,'HR ↓',{s:12,w:800,a:'end',c:'--blue'})+T(60,186,'phase 4 ชันน้อยลง',{s:11.5,w:700,a:'start',c:'--blue'}));
+ b+=G(3,`<circle cx="560" cy="110" r="10" style="fill:var(--agar);opacity:0">${AN('opacity','0;1;0',.8,{rep:'indefinite'})}${AN('r','6;20;6',.8,{rep:'indefinite'})}</circle>`+T(500,112,'phosphenes',{s:11.5,w:800,a:'end',c:'--agar'})+
+  R(40,214,580,44,'--surface2',{sc:'--line'})+T(330,232,'ลด HR อย่างเดียว ไม่ลดแรงบีบ • ต้องเป็น sinus rhythm (AF ใช้ไม่ได้)',{s:11.5,w:800,a:'middle',c:'--ink2'})+T(330,250,'เห็นแสงวาบ เพราะ HCN มีที่จอตาด้วย',{s:11,a:'middle',c:'--agar'}));
+ return b},steps:S};}
+
+/* cardiomyocyte scene shared by hfDigMoA and digoxin */
+const MYO=(p)=>R(16,40,608,190,'--bad-soft',{sc:'--bad',sw:3,rx:30})+T(610,220,'เซลล์กล้ามเนื้อหัวใจ',{s:12,w:800,a:'end',c:'--bad'})+
+  `<g transform="translate(120,40)"><rect x="-26" y="-12" width="52" height="24" rx="8" style="fill:var(--agar)"/><text x="0" y="4" font-size="10" font-weight="800" text-anchor="middle" style="fill:#fff">Na/K pump</text></g>`+
+  `<g transform="translate(470,40)"><rect x="-22" y="-12" width="44" height="24" rx="8" style="fill:var(--blue)"/><text x="0" y="4" font-size="10" font-weight="800" text-anchor="middle" style="fill:#fff">NCX</text></g>`+
+  R(250,150,200,50,'--surface',{sc:'--bad',rx:10})+SARC(296,171,p+'Sarc')+T(350,216,'sarcomere',{s:10.5,a:'middle',c:'--bad'});
+const PUMP=(n=3)=>MV('M100,60 L100,0',{n,lbl:'Na',c:'--blue',r:8,dur:1.4})+MV('M140,0 L140,60',{n,lbl:'K',c:'--violet',r:8,dur:1.4});
+const NCX=(n=3)=>MV('M490,0 L490,60',{n,lbl:'Na',c:'--blue',r:8,dur:1.4})+MV('M450,60 L450,0',{n,lbl:'Ca',c:'--saf',r:8,dur:1.4});
+const NAUP=()=>[[180,100],[220,120],[260,96],[300,124],[340,100],[380,118]].map(([x,y],i)=>`<g opacity="0">${AN('opacity','0;1',.5+i*.3)}<circle cx="${x}" cy="${y}" r="8" style="fill:var(--blue)"/><text x="${x}" y="${y+3.5}" font-size="8" font-weight="800" text-anchor="middle" style="fill:#fff">Na</text></g>`).join('');
+const CAUP=(p)=>[[500,120],[540,150],[520,180],[470,110]].map(([x,y],i)=>`<g opacity="0">${AN('opacity','0;1',.5+i*.3)}<circle cx="${x}" cy="${y}" r="8" style="fill:var(--saf)"/><text x="${x}" y="${y+3.5}" font-size="8" font-weight="800" text-anchor="middle" style="fill:#fff">Ca</text></g>`).join('')+
+  `<animateTransform href="#${p}Sarc" attributeName="transform" type="translate" values="296,171;306,171;296,171" dur="0.9s" begin="indefinite" repeatCount="indefinite"/>`;
+const DIGPILL=()=>DMV('0,-50',1,PL(120,80,'digoxin','--agar'))+NOX(120,40,'--agar');
+
+{const S=FIG.hfDigMoA.steps;
+FIG.hfDigMoA={title:'กลไก digoxin ในเซลล์กล้ามเนื้อหัวใจ',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,MYO('hd'));
+ b+=G(0,PUMP()+NCX(),{hide:1});
+ b+=G(0,DIGPILL()+T(160,72,'K ต่ำ → จับปั๊มได้มากขึ้น → พิษง่าย',{s:11,w:700,a:'start',c:'--agar'}));
+ b+=G(1,NAUP()+T(200,146,'Na⁺ คั่งในเซลล์',{s:12,w:800,a:'start',c:'--blue'}));
+ b+=G(2,NCX(1)+NOX(470,68,'--blue')+T(470,96,'ขับ Ca²⁺ ออกได้น้อย',{s:11.5,w:700,a:'middle',c:'--blue'}),{hide:3});
+ b+=G(3,CAUP('hd')+T(30,196,'Ca²⁺ ↑ → บีบตัวแรงขึ้น',{s:12,w:800,a:'start',c:'--ok'}));
+ b+=G(4,HEART(80,264,.8,'--saf',1.6)+MV('M110,250 L300,250',{n:1,c:'--violet',r:6,dur:2.6})+T(310,254,'vagal tone ↑ → AV node ช้าลง → คุม rate ใน AF',{s:11.5,w:800,a:'start',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.digoxin.steps;
+FIG.digoxin={title:'Digoxin ทำงานอย่างไร และทำไม K ต่ำทำให้เป็นพิษ',h:336,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,MYO('dg'));
+ b+=G(0,PUMP()+NCX(),{hide:1});
+ b+=G(0,DIGPILL()+HEART(80,264,.8,'--saf',1.6)+T(110,268,'+ กระตุ้น vagus → AV node ช้า (คุม rate AF)',{s:11.5,w:700,a:'start',c:'--violet'}));
+ b+=G(1,NAUP()+T(200,146,'Na⁺ ค้างในเซลล์',{s:12,w:800,a:'start',c:'--blue'}));
+ b+=G(2,NCX(1)+NOX(470,68,'--blue')+CAUP('dg')+T(30,196,'Ca²⁺ สะสม → บีบแรงขึ้น',{s:12,w:800,a:'start',c:'--ok'})+T(624,254,'ลดนอน รพ. ไม่ลดตาย',{s:11.5,w:700,a:'end',c:'--ink2'}),{hide:3});
+ b+=G(3,[60,170].map((x,i)=>DMV('0,-50',1+i*.3,PL(x,80,'dig','--agar'))).join('')+MV('M200,0 L170,40',{n:1,lbl:'K',c:'--violet',r:8,dur:3})+T(30,196,'K ต่ำ (loop diuretic) → digoxin จับ pump มากขึ้น → พิษ',{s:11.5,w:800,a:'start',c:'--bad'})+
+  R(300,290,324,40,'--bad-soft',{sc:'--bad'})+T(462,308,'ช่วงรักษาแคบ 0.5–0.9 ng/mL ใน HF',{s:11.5,w:800,a:'middle',c:'--bad'})+T(462,324,'ขับทางไต',{s:10.5,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.hfHisdnMoA.steps;
+FIG.hfHisdnMoA={title:'กลไก hydralazine + isosorbide dinitrate',h:250,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,HEART(320,120,1.4,'--saf',.8)+VESSEL(380,90,240,'hzArt','--bad',10)+T(500,64,'หลอดเลือดแดง (afterload)',{s:11.5,w:800,a:'middle',c:'--bad'})+VESSEL(20,150,240,'hzVein','--blue',10)+T(140,124,'หลอดเลือดดำ (preload)',{s:11.5,w:800,a:'middle',c:'--blue'})+
+  MV('M350,90 L620,90',{n:4,c:'--bad',r:5,dur:2})+MV('M20,150 L290,150',{n:4,c:'--blue',r:5,dur:2}));
+ b+=G(0,WIDEN('hzArt',90,10,24)+DMV('0,-40',1,PL(500,130,'hydralazine','--blue'))+T(500,160,'ขยาย arteriole → afterload ↓',{s:11.5,w:700,a:'middle',c:'--blue'}));
+ b+=G(1,WIDEN('hzVein',150,10,24)+MV('M60,200 L120,166',{n:2,lbl:'NO',c:'--saf',r:10,dur:1.4})+DMV('0,40',1,PL(140,214,'ISDN','--violet'))+T(140,240,'ให้ NO ขยาย vein → preload ↓',{s:11.5,w:700,a:'middle',c:'--violet'}));
+ b+=G(2,HEART(320,120,1.4,'--ok',1.6)+R(380,186,244,52,'--ok-soft',{sc:'--ok'})+T(502,206,'หัวใจทำงานเบาลงทั้ง 2 ด้าน',{s:11.5,w:800,a:'middle',c:'--ok'})+T(502,224,'ทางเลือกเมื่อใช้ ACEI/ARB/ARNI ไม่ได้',{s:10.5,a:'middle',c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.hfVeriMoA.steps;
+FIG.hfVeriMoA={title:'กลไก vericiguat',h:260,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,20,608,150,'--ok-soft',{sc:'--ok',rx:20})+T(30,40,'กล้ามเนื้อเรียบหลอดเลือด / หัวใจ',{s:11.5,w:700,a:'start',c:'--ok'})+`<circle cx="300" cy="96" r="30" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2.5"/>`+T(300,100,'sGC',{s:13,w:800,a:'middle',c:'--violet'})+
+  VESSEL(480,96,140,'vgV','--bad',10)+T(550,136,'ขยาย ลด remodeling',{s:11,w:700,a:'middle',c:'--ok'}));
+ b+=G(0,MV('M30,96 L266,96',{n:1,lbl:'NO',c:'--saf',r:11,dur:3})+T(150,80,'HF: NO ลดลง',{s:11.5,w:700,a:'middle',c:'--saf'}),{hide:2});
+ b+=G(1,MV('M332,96 L480,96',{n:2,lbl:'cG',c:'--blue',r:10,dur:1.6})+T(400,80,'cGMP ↑',{s:11.5,w:700,a:'middle',c:'--blue'}),{hide:2});
+ b+=G(2,DMV('0,60',1,PL(300,146,'vericiguat','--violet'))+PULSE(300,96,30,'--violet')+MV('M332,96 L480,96',{n:4,lbl:'cG',c:'--blue',r:10,dur:1.6})+WIDEN('vgV',96,10,22)+T(150,80,'กระตุ้น sGC โดยตรง',{s:11.5,w:700,a:'middle',c:'--violet'}));
+ b+=G(3,MV('M30,200 L250,120',{n:2,lbl:'NTG',c:'--agar',r:12,dur:1.6})+MV('M30,230 L270,130',{n:2,lbl:'PDE5i',c:'--blue',r:14,dur:1.8})+R(330,190,294,52,'--bad-soft',{sc:'--bad'})+T(477,210,'ร่วม nitrate / PDE-5 inhibitor → BP ต่ำ',{s:11.5,w:800,a:'middle',c:'--bad'})+T(477,228,'ห้ามคู่ sGC stimulator อื่น',{s:10.5,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.hfInoMoA.steps;
+FIG.hfInoMoA={title:'กลไก inotrope และ vasopressor',h:290,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,30,420,210,'--bad-soft',{sc:'--bad',sw:3,rx:28})+T(424,232,'เซลล์กล้ามเนื้อหัวใจ',{s:11.5,w:800,a:'end',c:'--bad'})+
+  `<path d="M70,44 l0,-14 m0,0 l-8,-10 m8,10 l8,-10" style="stroke:var(--blue);stroke-width:3;fill:none"/>`+T(90,20,'β1',{s:12,w:800,a:'start',c:'--blue'})+
+  `<circle cx="180" cy="110" r="20" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2"/>`+T(180,114,'cAMP',{s:10,w:800,a:'middle',c:'--blue'})+
+  `<circle cx="180" cy="190" r="18" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2"/>`+T(180,194,'PDE3',{s:10,w:800,a:'middle',c:'--agar'})+
+  R(280,150,130,50,'--surface',{sc:'--bad',rx:10})+SARC(300,171,'inoS')+T(345,216,'troponin / sarcomere',{s:10,a:'middle',c:'--bad'})+
+  VESSEL(460,100,164,'inoV','--bad',22)+T(542,70,'หลอดเลือด (α1)',{s:11.5,w:800,a:'middle',c:'--bad'}));
+ b+=G(0,MV('M74,46 C100,80 140,100 160,108',{n:3,c:'--blue',r:5,dur:1.4})+MV('M200,116 C240,130 280,150 300,160',{n:3,lbl:'Ca',c:'--saf',r:9,dur:1.6})+`<animateTransform href="#inoS" attributeName="transform" type="translate" values="300,171;310,171;300,171" dur="0.8s" begin="indefinite" repeatCount="indefinite"/>`+
+  MV('M180,130 L180,172',{n:2,c:'--blue',r:5,dur:1.4})+T(200,150,'PDE3 สลาย cAMP',{s:10.5,a:'start',c:'--agar'})+T(250,60,'β1 → cAMP ↑ → Ca²⁺ ↑ → บีบแรง',{s:11.5,w:800,a:'start',c:'--ok'}));
+ b+=G(1,MV('M0,0 L60,20',{n:2,lbl:'dobu',c:'--blue',r:13,dur:1.4})+DMV('-40,40',1,PL(120,240,'milrinone','--agar'))+NOX(180,190,'--agar')+T(16,270,'dobutamine: β1 (ฤทธิ์ลดถ้าได้ BB) • milrinone: ปิด PDE3 ไม่ผ่าน β → ได้ผลแม้ได้ BB',{s:11,w:700,a:'start',c:'--ink2'}),{hide:2});
+ b+=G(2,DMV('0,-60',1,PL(345,130,'levosimendan','--violet'))+PULSE(345,175,26,'--violet')+T(16,270,'levosimendan: ทำให้ troponin ไวต่อ Ca²⁺',{s:11.5,w:700,a:'start',c:'--violet'}),{hide:3});
+ b+=G(3,DMV('0,-50',1,PL(542,140,'norepinephrine','--bad'))+`<animate href="#inoV" attributeName="y" values="89;95" dur="1.2s" begin="indefinite" fill="freeze"/><animate href="#inoV" attributeName="height" values="22;10" dur="1.2s" begin="indefinite" fill="freeze"/>`+
+  T(542,170,'α1 → หลอดเลือดหด → BP ↑',{s:11.5,w:800,a:'middle',c:'--bad'})+T(542,188,'vasopressor ตัวแรก (shock)',{s:10.5,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+/* ===== HT animated scenes ===== */
+{const S=FIG.bpControl.steps;
+FIG.bpControl={title:'ร่างกายคุมความดันด้วย 2 ระบบหลัก',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,HEART(130,140,1.5,'--saf',.9)+T(130,208,'หัวใจ',{s:14,w:700,a:'middle',c:'--saf'})+T(130,226,'CO = HR × SV',{s:12.5,a:'middle',c:'--ink2'})+
+  R(222,122,276,44,'--surface2',{sc:'--saf',rx:22})+`<rect id="bpArt" x="232" y="130" width="256" height="28" rx="14" style="fill:var(--bad-soft)"/>`+T(360,188,'หลอดเลือดแดง: TPR = แรงต้าน',{s:12.5,w:700,a:'middle',c:'--saf'})+
+  T(360,222,'BP = CO × TPR',{s:18,w:800,a:'middle',c:'--ink'})+
+  MV('M176,144 L620,144',{n:7,c:'--bad',r:5,dur:2.4}));
+ b+=G(1,R(236,14,170,42,'--blue-soft',{sc:'--blue'})+T(321,40,'สมอง (medulla)',{s:12.5,w:700,a:'middle',c:'--blue'})+
+  `<circle cx="300" cy="122" r="7" style="fill:var(--blue)"/>`+T(306,112,'baroreceptor',{s:10.5,a:'start',c:'--blue'})+
+  MV('M300,118 L300,58',{n:3,c:'--blue',r:4,dur:1.2})+MV('M240,40 C180,40 150,60 140,100',{n:3,c:'--blue',r:4,dur:1.2})+MV('M400,56 C430,80 440,100 440,124',{n:3,c:'--blue',r:4,dur:1.2})+
+  `<animate href="#bpArt" attributeName="y" values="130;136" dur="1s" begin="indefinite" fill="freeze"/><animate href="#bpArt" attributeName="height" values="28;16" dur="1s" begin="indefinite" fill="freeze"/>`+
+  T(24,40,'เร็ว (วินาที)',{s:12,w:700,a:'start',c:'--blue'})+T(24,58,'HR↑ + หลอดเลือดหด',{s:11.5,a:'start',c:'--blue'}));
+ b+=G(2,KID(560,10,.62,'--agar')+T(580,112,'ไต',{s:12.5,w:700,a:'middle',c:'--agar'})+
+  MV('M560,60 C520,70 480,90 470,124',{n:3,lbl:'A2',c:'--agar',r:10,dur:2,track:1})+MV('M600,100 C610,130 600,150 498,150',{n:3,lbl:'Na',c:'--blue',r:9,dur:2.4,track:1})+
+  T(632,190,'ช้า (ชั่วโมง-วัน)',{s:12,w:700,a:'end',c:'--agar'})+T(632,208,'Ang II หด + เก็บ Na/น้ำ',{s:11.5,a:'end',c:'--agar'}));
+ b+=G(3,R(16,244,608,48,'--violet-soft',{sc:'--violet'})+T(320,264,'ยาลดความดัน = ปิดทีละจุด',{s:13,w:800,a:'middle',c:'--violet'})+T(320,282,'ยาขับปัสสาวะ • ยาขยายหลอดเลือด • ยาปิด RAAS • ยาปิด sympathetic',{s:12,a:'middle',c:'--violet'})+
+  NOX(130,96,'--violet')+NOX(300,144,'--violet')+NOX(560,60,'--violet'));
+ return b},steps:S};}
+
+{const S=FIG.nephron.steps;const P='M96,60 C150,60 160,60 180,80 L180,230 C180,270 230,270 230,230 L230,90 C230,60 270,60 300,60 C340,60 360,60 380,90 L380,140 C380,160 420,160 440,140 L440,90 C440,60 480,60 520,70 L520,300';
+const TAL=(n=2)=>MV('M232,214 L292,236',{n,lbl:'Na',c:'--saf',r:9,dur:1.8,track:1});
+const DCT=(n=2)=>MV('M410,156 L410,206',{n,lbl:'Na',c:'--violet',r:9,dur:1.8,track:1});
+const CD=(n=2)=>MV('M522,130 L590,130',{n,lbl:'Na',c:'--agar',r:9,dur:1.8,track:1});
+FIG.nephron={title:'Nephron: ยาขับปัสสาวะออกฤทธิ์ตรงไหน',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,C(70,60,26,'--surface2',{sc:'--ink2'})+T(70,100,'Glomerulus',{s:12,a:'middle',c:'--muted'})+PA(P,'none',{sc:'--ink2',sw:12,op:.25})+PA(P,'none',{sc:'--blue',sw:2})+
+  T(120,44,'PCT',{s:13,w:700,c:'--ink2'})+T(205,295,'Loop of Henle',{s:13,w:700,a:'middle',c:'--ink2'})+T(330,44,'DCT',{s:13,w:700,c:'--ink2'})+T(540,214,'Collecting duct',{s:13,w:700,c:'--ink2'})+T(560,300,'ปัสสาวะ',{s:12,w:700,c:'--blue'})+
+  MV(P,{n:6,lbl:'Na',c:'--blue',r:8,dur:7}));
+ b+=G(0,TAL()+DCT()+CD()+T(296,250,'ดูดกลับ',{s:11,a:'start',c:'--muted'}),{hide:1});
+ b+=G(1,DMV('-120,-140',1,PL(244,180,'furosemide','--saf'))+NOX(262,226,'--saf')+T(262,200,'Na-K-2Cl ที่ TAL • แรงสุด',{s:11.5,w:700,c:'--saf'})+DCT()+CD(),{hide:2});
+ b+=G(2,DMV('0,-100',1,PL(340,112,'thiazide','--violet'))+NOX(410,182,'--violet')+T(300,134,'Na-Cl ที่ DCT',{s:11.5,w:700,c:'--violet'})+TAL()+CD(),{hide:3});
+ b+=G(3,DMV('100,40',1,PL(520,250,'spironolactone','--agar'))+NOX(556,130,'--agar')+T(500,276,'K-sparing ที่ CD (ไม่เสีย K แต่ K สูงได้)',{s:11.5,w:700,a:'end',c:'--agar'})+TAL()+DCT(),{hide:4});
+ b+=G(4,R(14,124,150,96,'--surface2',{sc:'--line'})+T(24,146,'Ca ในเลือด',{s:12.5,w:700})+T(24,166,'thiazide: DCT ดูด Ca',{s:11.5,c:'--violet'})+T(24,182,'กลับมากขึ้น → Ca ↑',{s:11.5,c:'--violet'})+T(24,202,'loop: Ca ออกปัสสาวะ ↓',{s:11.5,c:'--saf'})+
+  MV('M380,120 L330,160',{n:3,lbl:'Ca',c:'--violet',r:9,dur:1.8,track:1})+MV('M230,150 C230,120 230,100 236,90',{n:2,lbl:'Ca',c:'--saf',r:9,dur:2.4}));
+ return b},steps:S};}
+
+{const S=FIG.ccbSplit.steps;
+FIG.ccbSplit={title:'CCB 2 กลุ่ม: กลุ่มหนึ่งชอบหลอดเลือด อีกกลุ่มชอบหัวใจ',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,24,290,166,'--blue-soft',{sc:'--blue'})+T(161,46,'DHP: -dipine',{s:15,w:700,a:'middle',c:'--blue'})+T(161,64,'amlodipine, nifedipine, felodipine',{s:11.5,a:'middle',c:'--ink2'})+
+  R(40,108,240,40,'--surface',{rx:20,sc:'--blue'})+`<rect id="ccbLum" x="52" y="122" width="216" height="12" rx="6" style="fill:var(--bad)"><animate attributeName="y" values="122;114" dur="1.2s" begin="indefinite" fill="freeze"/><animate attributeName="height" values="12;28" dur="1.2s" begin="indefinite" fill="freeze"/></rect>`+
+  R(96,96,16,14,'--blue',{rx:3})+R(200,96,16,14,'--blue',{rx:3})+MV('M104,72 L104,104',{n:2,lbl:'Ca',c:'--saf',r:8,dur:1.4})+
+  DMV('-60,-40',1.2,PL(208,88,'DHP','--blue'))+NOX(208,128,'--blue')+T(161,172,'หลอดเลือดขยาย → BP ลดดี • หัวใจแทบไม่โดน',{s:11.5,w:700,a:'middle',c:'--blue'})+
+  R(334,24,290,166,'--saf-soft',{sc:'--saf'})+T(479,46,'Non-DHP',{s:15,w:700,a:'middle',c:'--saf'})+T(479,64,'verapamil, diltiazem',{s:11.5,a:'middle',c:'--ink2'})+
+  DMV('60,-40',1.2,PL(420,92,'non-DHP','--saf'))+NOX(450,118,'--saf')+T(479,172,'HR↓ AV conduction↓ บีบตัว↓',{s:11.5,w:700,a:'middle',c:'--saf'}));
+ b+=G(0,HEART(530,122,1.2,'--saf',.5),{hide:2});
+ b+=G(1,MV('M56,150 C40,162 30,180 24,206',{n:2,lbl:'H₂O',c:'--blue',r:11,dur:1.6})+MV('M266,150 C282,162 292,180 298,206',{n:2,lbl:'H₂O',c:'--blue',r:11,dur:1.6})+
+  T(40,212,'ADR ของ DHP',{s:13.5,w:700,c:'--blue'})+T(16,232,'• ขาบวม: แดงขยาย ดำไม่ขยาย น้ำรั่ว',{s:12,c:'--ink2'})+T(16,250,'• ปวดหัว หน้าแดง • หัวใจเต้นเร็ว (reflex)',{s:12,c:'--ink2'})+T(16,268,'• เหงือกโต',{s:12,c:'--ink2'}));
+ b+=G(2,HEART(530,122,1.2,'--saf',1.6)+T(334,212,'ADR ของ non-DHP',{s:13.5,w:700,c:'--saf'})+T(334,232,'• หัวใจเต้นช้า AV block',{s:12,c:'--ink2'})+T(334,250,'• ท้องผูก (verapamil) • ห้ามใน HFrEF',{s:12,c:'--ink2'})+T(334,268,'• ยับยั้ง CYP3A4 + P-gp',{s:12,c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.raas.steps;
+const AGT=()=>MV('M112,70 L200,70',{n:3,lbl:'AGT',c:'--saf',r:12,dur:1.8,track:1});
+const A1=()=>MV('M258,70 L360,70',{n:3,lbl:'A1',c:'--agar',r:10,dur:1.8,track:1});
+const A2=()=>MV('M418,70 L526,70',{n:3,lbl:'A2',c:'--bad',r:10,dur:1.8,track:1});
+const EFF=(blockAld)=>`<animate href="#raLum" attributeName="y" values="104;110" dur="1s" begin="indefinite" fill="freeze"/><animate href="#raLum" attributeName="height" values="20;8" dur="1s" begin="indefinite" fill="freeze"/>`+
+  MV('M560,96 L560,190',{n:2,c:'--violet',r:4,dur:1.2})+MV(blockAld?'M530,226 L330,226':'M530,226 L262,250',{n:3,lbl:'Ald',c:'--violet',r:11,dur:2.2,track:1});
+const BKok=()=>MV('M300,170 C340,170 370,130 384,98',{n:3,lbl:'BK',c:'--ok',r:10,dur:2});
+FIG.raas={title:'RAAS: ยาแต่ละตัวตัดตรงไหน',h:330,anim:1,dur:5400,body:()=>{let b='';
+ b+=G(0,c12Liv(10,40,.55)+T(58,118,'ตับ',{s:12,w:700,a:'middle',c:'--saf'})+
+  `<circle cx="230" cy="70" r="26" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2.5"/>`+T(230,75,'renin',{s:12,w:800,a:'middle',c:'--agar'})+T(230,112,'ไต',{s:11,a:'middle',c:'--agar'})+
+  `<circle cx="390" cy="70" r="26" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/>`+T(390,75,'ACE',{s:12,w:800,a:'middle',c:'--blue'})+T(390,32,'ปอด (= kininase II)',{s:11,a:'middle',c:'--blue'})+
+  `<path d="M548,92 l0,-14 m0,0 l-8,-10 m8,10 l8,-10" style="stroke:var(--bad);stroke-width:3;fill:none"/>`+T(548,48,'AT1',{s:12,w:800,a:'middle',c:'--bad'})+
+  R(500,96,130,36,'--surface2',{sc:'--bad',rx:18})+`<rect id="raLum" x="508" y="104" width="114" height="20" rx="10" style="fill:var(--bad-soft)"/>`+T(565,148,'หลอดเลือด',{s:11,a:'middle',c:'--bad'})+
+  R(500,196,130,48,'--violet-soft',{sc:'--violet'})+T(565,216,'adrenal',{s:12,w:700,a:'middle',c:'--violet'})+T(565,234,'→ aldosterone',{s:11,a:'middle',c:'--violet'})+
+  KID(222,218,.42,'--agar')+T(236,300,'ไต: เก็บ Na ขับ K',{s:11.5,w:700,a:'middle',c:'--agar'})+AGT());
+ b+=G(0,A1(),{hide:4});
+ b+=G(0,A2()+EFF()+BKok()+T(300,190,'BK ถูกสลาย',{s:11,a:'start',c:'--ok'}),{hide:1});
+ b+=G(1,DMV('0,-80',1,PL(390,128,'ACEI','--blue'))+NOX(404,70,'--blue')+MV('M300,170 L470,170',{n:5,lbl:'BK',c:'--bad',r:10,dur:2.4})+T(300,196,'bradykinin ค้าง → ไอแห้ง, angioedema',{s:12,w:700,a:'start',c:'--bad'}),{hide:2});
+ b+=G(2,A2()+BKok()+DMV('0,-80',1,PL(548,176,'ARB','--ok'))+NOX(548,76,'--ok')+T(300,196,'ไม่ยุ่ง bradykinin → ไม่ไอ',{s:12,w:700,a:'start',c:'--ok'}),{hide:3});
+ b+=G(3,A2()+BKok()+EFF(1)+DMV('120,-40',1,PL(300,226,'MRA','--violet'))+NOX(300,250,'--violet')+T(16,180,'ระวัง K สูง',{s:12,w:700,a:'start',c:'--violet'}),{hide:4});
+ b+=G(4,DMV('0,-80',1,PL(230,140,'aliskiren','--agar'))+NOX(258,70,'--agar')+R(14,168,280,40,'--bad-soft',{sc:'--bad'})+T(154,193,'ห้ามใช้ร่วมกับ ACEI/ARB',{s:12.5,w:800,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.glom.steps;
+const FIL=(n,d)=>MV('M270,190 L270,262 L640,262',{n,lbl:'GFR',c:'--blue',r:12,dur:d,track:1});
+FIG.glom={title:'ทำไม ACEI/ARB ทำให้ creatinine ขึ้น',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<rect x="0" y="124" width="218" height="32" style="fill:var(--surface2)"/><rect id="glAff" x="0" y="128" width="218" height="24" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(10,116,'ขาเข้า (afferent)',{s:12,w:700,a:'start',c:'--bad'})+
+  `<circle cx="270" cy="140" r="64" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/><circle cx="270" cy="140" r="42" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(270,72,'glomerulus',{s:11.5,w:700,a:'middle',c:'--blue'})+
+  `<rect id="glEff" x="322" y="133" width="210" height="14" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(530,172,'ขาออก (efferent)',{s:12,w:700,a:'end',c:'--bad'})+
+  MV('M0,140 L640,140',{n:7,c:'--bad',r:5,dur:3})+T(632,290,'ปัสสาวะ (กรอง)',{s:11,a:'end',c:'--blue'}));
+ b+=G(0,FIL(4,2)+MV('M430,60 L430,128',{n:3,lbl:'A2',c:'--bad',r:10,dur:1.6})+T(440,60,'Ang II บีบขาออก → แรงกรองคงที่',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:1});
+ b+=G(1,`<animate href="#glEff" attributeName="y" values="133;124" dur="1.2s" begin="indefinite" fill="freeze"/><animate href="#glEff" attributeName="height" values="14;32" dur="1.2s" begin="indefinite" fill="freeze"/>`+DMV('0,-60',1,PL(430,96,'ACEI/ARB','--blue'))+T(360,200,'ขาออกคลาย → แรงกรองลด',{s:12,w:700,a:'start',c:'--blue'})+T(360,218,'creatinine ↑ ได้ถึง 30%',{s:12,a:'start',c:'--blue'}));
+ b+=G(1,FIL(2,3),{hide:2});
+ b+=G(2,`<animate href="#glAff" attributeName="y" values="128;136" dur="1.2s" begin="indefinite" fill="freeze"/><animate href="#glAff" attributeName="height" values="24;8" dur="1.2s" begin="indefinite" fill="freeze"/>`+DMV('0,-60',1,PL(110,90,'NSAID','--saf'))+T(10,190,'ไม่มี PG ขยายขาเข้า',{s:12,w:700,a:'start',c:'--saf'})+T(10,208,'→ เข้าน้อย ออกง่าย GFR ตก',{s:12,a:'start',c:'--saf'})+FIL(1,5));
+ b+=G(3,DMV('0,-60',1,PL(110,52,'diuretic','--violet'))+R(10,226,250,30,'--bad-soft',{sc:'--bad'})+T(135,246,'Triple whammy → AKI',{s:13,w:800,a:'middle',c:'--bad'}));
+ b+=G(4,`<ellipse cx="60" cy="140" rx="20" ry="12" style="fill:var(--agar);opacity:.85"/>`+T(60,172,'ตีบ',{s:11.5,w:700,a:'middle',c:'--agar'})+R(330,226,300,30,'--bad-soft',{sc:'--bad'})+T(480,246,'Renal artery stenosis 2 ข้าง: ห้าม',{s:12.5,w:800,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.bbMap.steps;
+FIG.bbMap={title:'β-blocker: เลือกตัวไหน ขึ้นกับ receptor ที่อยากปิด',h:310,anim:1,dur:5400,body:()=>{let b='';
+ b+=G(0,R(270,8,100,30,'--surface2',{sc:'--ink2',rx:15})+T(320,28,'ยาเข้าเลือด',{s:12,w:700,a:'middle',c:'--ink2'})+
+  T(110,96,'β1 หัวใจ',{s:12,w:800,a:'middle',c:'--saf'})+KID(232,108,.42,'--agar')+T(246,96,'β1 ไต (renin)',{s:12,w:800,a:'middle',c:'--agar'})+
+  `<path d="M420,110 L420,150 M420,150 L396,190 M420,150 L444,190" style="stroke:var(--blue-soft);stroke-width:18;stroke-linecap:round;fill:none"/><path id="bbBr" d="M420,110 L420,150 M420,150 L396,190 M420,150 L444,190" style="stroke:var(--blue);stroke-width:4;stroke-linecap:round;fill:none"/>`+T(420,96,'β2 หลอดลม',{s:12,w:800,a:'middle',c:'--blue'})+
+  R(510,140,120,30,'--surface2',{sc:'--bad',rx:15})+`<rect id="bbVes" x="518" y="148" width="104" height="14" rx="7" style="fill:var(--bad-soft)"/>`+T(570,96,'α1 หลอดเลือด',{s:12,w:800,a:'middle',c:'--bad'}));
+ b+=G(0,HEART(110,150,1.1,'--saf',1.4)+MV('M300,38 C200,60 140,90 120,120',{n:2,lbl:'β',c:'--violet',r:9,dur:2,track:1})+MV('M312,38 C290,70 270,100 254,120',{n:2,lbl:'β',c:'--violet',r:9,dur:2,track:1})+
+  T(16,236,'ปิด β1 หัวใจ → HR และแรงบีบลด',{s:12,w:700,a:'start',c:'--saf'})+T(16,254,'ปิด β1 ไต → renin ลด',{s:12,a:'start',c:'--agar'}));
+ b+=G(1,R(330,214,300,46,'--ok-soft',{sc:'--ok'})+T(480,234,'β1-selective: "BEAM" + nebivolol',{s:12,w:800,a:'middle',c:'--ok'})+T(480,252,'ไม่ไปหลอดลม → ปลอดภัยกว่าในหอบหืด',{s:11.5,a:'middle',c:'--ok'}),{hide:2});
+ b+=G(2,MV('M330,38 C380,60 410,80 418,108',{n:2,lbl:'β',c:'--violet',r:9,dur:2,track:1})+`<animate href="#bbBr" attributeName="stroke-width" values="4;1.5;4;1.5" dur="1.6s" begin="indefinite" fill="freeze"/>`+NOX(470,140,'--bad')+
+  R(330,214,300,46,'--bad-soft',{sc:'--bad'})+T(480,234,'Non-selective → หลอดลมหดเกร็ง',{s:12,w:800,a:'middle',c:'--bad'})+T(480,252,'ห้ามในหอบหืด • propranolol เข้าสมอง',{s:11.5,a:'middle',c:'--bad'}),{hide:3});
+ b+=G(3,MV('M340,30 C460,40 540,80 560,140',{n:2,lbl:'α',c:'--ok',r:9,dur:2,track:1})+`<animate href="#bbVes" attributeName="y" values="148;144" dur="1s" begin="indefinite" fill="freeze"/><animate href="#bbVes" attributeName="height" values="14;22" dur="1s" begin="indefinite" fill="freeze"/>`+
+  R(330,214,300,64,'--violet-soft',{sc:'--violet'})+T(480,234,'มีฤทธิ์ α: carvedilol (HFrEF)',{s:12,w:800,a:'middle',c:'--violet'})+T(480,252,'labetalol (ตั้งครรภ์, emergency)',{s:11.5,a:'middle',c:'--violet'})+T(480,270,'ISA (pindolol): ไม่ใช้หลัง MI',{s:11.5,a:'middle',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.nitrateDay.steps;
+FIG.nitrateDay={title:'ไนเตรต: ทำงานอย่างไร และทำไมต้องมีช่วงปลอดยา',h:352,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(6,8,628,142,'--ok-soft',{sc:'--ok',rx:20})+T(20,28,'กล้ามเนื้อเรียบหลอดเลือดดำ',{s:12,w:700,a:'start',c:'--ok'})+
+  `<circle cx="210" cy="64" r="22" style="fill:var(--surface);stroke:var(--ink2);stroke-width:2"/>`+T(210,69,'–SH',{s:12,w:800,a:'middle',c:'--ink2'})+
+  `<circle cx="380" cy="64" r="26" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/>`+T(380,60,'guanylate',{s:9.5,w:800,a:'middle',c:'--blue'})+T(380,72,'cyclase',{s:9.5,w:800,a:'middle',c:'--blue'})+
+  `<line id="ndW1" x1="520" y1="44" x2="630" y2="44" style="stroke:var(--blue);stroke-width:4"/><line id="ndW2" x1="520" y1="104" x2="630" y2="104" style="stroke:var(--blue);stroke-width:4"/>`+T(575,70,'หลอดเลือดดำ',{s:11,a:'middle',c:'--blue'})+T(575,90,'ขยาย → preload ↓',{s:11,w:700,a:'middle',c:'--ok'})+
+  MV('M0,64 L186,64',{n:3,lbl:'NTG',c:'--agar',r:13,dur:2.2,track:1})+MV('M232,64 L352,64',{n:3,lbl:'NO',c:'--saf',r:11,dur:1.6,track:1})+MV('M406,64 L512,74',{n:3,lbl:'cG',c:'--blue',r:11,dur:1.6,track:1})+T(460,108,'GTP → cGMP ↑',{s:11,w:700,a:'middle',c:'--blue'})+
+  `<animate href="#ndW1" attributeName="y1" values="44;22" dur="1.4s" begin="indefinite" fill="freeze"/><animate href="#ndW1" attributeName="y2" values="44;22" dur="1.4s" begin="indefinite" fill="freeze"/><animate href="#ndW2" attributeName="y1" values="104;126" dur="1.4s" begin="indefinite" fill="freeze"/><animate href="#ndW2" attributeName="y2" values="104;126" dur="1.4s" begin="indefinite" fill="freeze"/>`);
+ b+=G(1,MV('M0,112 C150,112 300,108 356,84',{n:2,lbl:'SNP',c:'--saf',r:13,dur:2.4,track:1})+T(20,138,'Nitroprusside ปล่อย NO เอง ไม่ต้องใช้ –SH • มี cyanide',{s:11.5,w:700,a:'start',c:'--saf'}));
+ const x=h=>40+h*23.33;
+ b+=G(2,`${L(x(0),250,x(24),250,'--line',{w:10})}${[0,6,12,18,24].map(h=>T(x(h),286,h+':00',{s:11,a:'middle',c:'--muted'})).join('')}${T(10,174,'วันหนึ่ง (ISDN วันละ 3 ครั้ง)',{s:13,w:700,c:'--ink2'})}`);
+ b+=G(2,`${[7,12,17].map(h=>`${R(x(h),232,x(h+4.5)-x(h),36,'--agar-soft',{rx:4})}${PA(`M${x(h)},226 l-7,-12 h14z`,'--agar')}${T(x(h),208,h+':00',{s:12,w:700,a:'middle',c:'--agar'})}`).join('')}${T(x(12)+150,174,'= เช้า • เที่ยง • บ่าย',{s:13,w:700,a:'middle',c:'--agar'})}`,{hide:4});
+ b+=G(3,`${R(x(21.5),232,x(24)-x(21.5),36,'--ok-soft',{rx:4,sc:'--ok',dash:1})}${R(x(0),232,x(7)-x(0),36,'--ok-soft',{rx:4,sc:'--ok',dash:1})}${T(x(3),306,'ช่วงปลอดยา ~9–10 ชม. (≥8–12)',{s:12.5,w:700,a:'middle',c:'--ok'})}${T(x(22.7),306,'กลางคืน',{s:12,a:'middle',c:'--ok'})}`,{hide:4});
+ b+=G(4,`${[0,8,16].map(h=>`${R(x(h),232,x(h+8)-x(h)-2,36,'--saf-soft',{rx:4,sc:'--saf'})}${PA(`M${x(h)+3},226 l-7,-12 h14z`,'--saf')}`).join('')}${T(320,206,'กินทุก 8 ชม. ตรง (00 • 08 • 16) หรือมื้อก่อนนอน',{s:12.5,w:700,a:'middle',c:'--saf'})}${T(320,306,'ไม่มีช่วงพักยา → nitrate tolerance (ยาไม่ได้ผล)',{s:13,w:700,a:'middle',c:'--saf'})}`);
+ b+=G(3,`${R(10,318,620,30,'--agar-soft',{rx:10})}${T(320,338,'"กินกลางวัน พักกลางคืน" — มื้อสุดท้ายไม่ควรเป็นมื้อเย็นหรือก่อนนอน',{s:13,w:700,a:'middle',c:'--agar'})}`);
+ return b},steps:S};}
+
+/* ===== Dyslipidemia animated scenes ===== */
+const LDLR=(x,y,c='--blue')=>`<g><rect x="${x-5}" y="${y}" width="10" height="16" rx="3" style="fill:var(${c})"/><path d="M${x-9},${y} q9,-13 18,0" style="fill:none;stroke:var(${c});stroke-width:3"/></g>`;
+const APOP=(inner,dur=.8)=>`<g opacity="0">${AN('opacity','0;1',dur)}${inner}</g>`;
+
+{const S=FIG.statinCell.steps;
+FIG.statinCell={title:'Statin ลด LDL ในเลือดได้อย่างไร',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(0,44,'เลือด')+R(100,64,440,206,'--saf-soft',{rx:40,sc:'--saf',sw:3})+T(320,250,'เซลล์ตับ',{s:15,w:800,a:'middle',c:'--saf'})+
+  T(150,164,'HMG-CoA',{s:13,w:700,a:'middle'})+`<circle cx="262" cy="160" r="20" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(262,196,'reductase',{s:11,a:'middle',c:'--violet'})+T(420,164,'Cholesterol',{s:13,w:700,a:'middle'})+
+  LDLR(200,64)+LDLR(440,64)+MV('M0,22 L640,22',{n:7,lbl:'LDL',c:'--violet',r:12,dur:6}));
+ b+=G(0,MV('M196,160 L370,160',{n:4,c:'--agar',r:6,dur:1.6})+T(320,130,'ตับสร้าง cholesterol (มากช่วงกลางคืน)',{s:11.5,w:700,a:'middle',c:'--agar'}),{hide:1});
+ b+=G(1,DMV('-200,-60',1.2,PL(262,130,'Statin','--violet'))+NOX(262,160,'--violet')+MV('M196,160 L370,160',{n:1,c:'--agar',r:6,dur:4})+T(320,220,'cholesterol ในเซลล์ลด',{s:13,w:700,a:'middle',c:'--violet'}));
+ b+=G(2,[260,320,380].map((x,i)=>APOP(LDLR(x,64),.6+i*.4)).join('')+T(320,96,'สร้าง LDL receptor เพิ่ม',{s:12.5,w:700,a:'middle',c:'--blue'}));
+ b+=G(3,[200,260,320,380,440].map((x,i)=>MV(`M${x-60},22 C${x-20},22 ${x},30 ${x},84 L${x},120`,{n:2,lbl:'LDL',c:'--violet',r:11,dur:2+i*.2})).join('')+T(632,62,'LDL ในเลือด ↓ 30–60%',{s:12.5,w:800,a:'end',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.lipoTour.steps;const ball=(x,y,r,c,t)=>`${C(x,y,r,c+'-soft',{sc:c,sw:2})}${T(x,y+4,t,{s:11,w:700,a:'middle',c})}`;
+FIG.lipoTour={title:'ไขมันเดินทางในเลือดด้วย "รถขนส่ง" 4 แบบ',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(20,40,130,90,'--agar-soft',{sc:'--agar'})+T(85,66,'ลำไส้',{s:15,w:700,a:'middle',c:'--agar'})+T(85,88,'ไขมันจากอาหาร',{s:12,a:'middle',c:'--ink2'})+
+  PA('M250,40 C300,30 360,40 380,80 C390,110 370,140 320,140 C280,140 240,120 240,90 C240,70 240,50 250,40 Z','--saf-soft',{sc:'--saf'})+T(310,98,'ตับ',{s:16,w:700,a:'middle',c:'--saf'})+
+  R(480,40,140,90,'--blue-soft',{sc:'--blue'})+T(550,66,'กล้ามเนื้อ/ไขมัน',{s:13,w:700,a:'middle',c:'--blue'})+T(550,88,'ใช้/เก็บ TG',{s:12,a:'middle',c:'--ink2'})+
+  R(480,200,140,90,'--violet-soft',{sc:'--violet'})+T(550,226,'ผนังหลอดเลือด',{s:13,w:700,a:'middle',c:'--violet'})+T(550,248,'เซลล์ร่างกาย',{s:12,a:'middle',c:'--ink2'}));
+ b+=G(0,`<g transform="translate(330,240)"><circle r="48" style="fill:var(--agar-soft);stroke:var(--blue);stroke-width:5;stroke-dasharray:8 5">${ANT('0;360',8,{type:'rotate',rep:'indefinite'})}</circle>${T(0,-4,'TG + cholesterol',{s:9.5,w:700,a:'middle',c:'--agar'})}${T(0,12,'(แกนใน)',{s:10,a:'middle',c:'--ink2'})}</g>`+T(330,300,'เปลือก = apolipoprotein',{s:11,w:700,a:'middle',c:'--blue'}),{hide:1});
+ b+=G(1,MV('M150,60 C220,6 420,6 480,60',{n:3,lbl:'CM',c:'--agar',r:15,dur:3,track:1})+MV('M480,118 C440,140 400,130 384,112',{n:2,lbl:'rem',c:'--agar',r:9,dur:2})+T(20,170,'Chylomicron: ขน TG จากอาหาร',{s:12.5,w:700,c:'--agar'}));
+ b+=G(2,MV('M384,96 L480,96',{n:3,lbl:'VLDL',c:'--saf',r:15,dur:2,track:1})+T(20,190,'VLDL: ตับส่ง TG ออกไป → IDL → LDL',{s:12.5,w:700,c:'--saf'}));
+ b+=G(3,MV('M350,140 C380,190 430,230 480,240',{n:3,lbl:'LDL',c:'--violet',r:12,dur:2.4,track:1})+T(20,210,'LDL: ส่ง cholesterol ไปเซลล์',{s:12.5,w:700,c:'--violet'})+T(20,228,'มากเกิน → สะสมในผนังหลอดเลือด',{s:12,c:'--saf'}));
+ b+=G(4,MV('M480,276 C380,306 300,250 300,145',{n:3,lbl:'HDL',c:'--ok',r:11,dur:2.6,track:1})+T(20,260,'HDL: เก็บ cholesterol กลับตับ',{s:12.5,w:700,c:'--ok'})+T(20,278,'(reverse cholesterol transport)',{s:12,c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.plaque.steps;
+FIG.plaque={title:'LDL กลายเป็น plaque ในผนังหลอดเลือดได้อย่างไร',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(10,40,620,40,'--saf-soft',{rx:0})+T(16,34,'เลือด',{s:11,c:'--saf'})+L(10,80,630,80,'--ink2',{w:3})+T(20,96,'endothelium',{s:11,c:'--muted'})+R(10,82,620,140,'--surface2',{rx:0})+T(620,214,'ชั้น intima',{s:12,a:'end',c:'--muted'})+
+  MV('M0,60 L640,60',{n:8,c:'--bad',r:5,dur:3}));
+ b+=G(1,MV('M110,56 C140,60 150,70 160,120',{n:3,lbl:'LDL',c:'--violet',r:11,dur:2})+[[170,140],[196,150],[150,160]].map(([x,y],i)=>APOP(`<circle cx="${x}" cy="${y}" r="9" style="fill:var(--violet);stroke:var(--saf);stroke-width:2"/>`,1+i*.5)).join('')+T(210,130,'ถูก oxidize',{s:11,w:700,c:'--saf'})+T(20,244,'1. LDL ล้นเข้าผนังที่บาดเจ็บ (ความดัน บุหรี่ เบาหวาน) แล้วถูก oxidize',{s:12.5,w:700,c:'--violet'}));
+ b+=G(2,MV('M230,56 C260,60 270,90 276,130',{n:1,lbl:'Mo',c:'--blue',r:13,dur:2.4})+`<circle cx="290" cy="150" r="22" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2.5">${AN('r','14;24',2.4)}</circle>`+
+  MV('M196,150 L284,150',{n:3,c:'--violet',r:5,dur:1.6})+T(290,190,'foam cell',{s:11.5,w:700,a:'middle',c:'--agar'})+T(20,266,'2. Monocyte → macrophage กิน LDL = foam cell (fatty streak)',{s:12.5,w:700,c:'--agar'}));
+ b+=G(3,`<g transform="translate(470,80)"><g>${ANT('1 0.1;1 1',2.4,{type:'scale'})}<path d="M-90,0 C-60,-48 50,-48 90,0 Z" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2"/><ellipse cx="0" cy="-10" rx="40" ry="11" style="fill:var(--agar);opacity:.7"/><path d="M-90,0 C-60,-44 50,-44 90,0" style="fill:none;stroke:var(--blue);stroke-width:4"/></g></g>`+T(20,288,'3. Smooth muscle สร้างฝาครอบ: แกนไขมัน + fibrous cap = plaque',{s:12.5,w:700,c:'--blue'}));
+ b+=G(4,PA('M466,46 l8,10 l-6,4 l10,10','none',{sc:'--saf',sw:3})+[0,1,2,3].map(i=>MV(`M${360+i*20},60 C420,58 460,50 478,${46+i*2}`,{n:1,c:'--agar',r:5,dur:1.4+i*.3})).join('')+
+  `<circle cx="490" cy="50" r="6" style="fill:var(--saf);opacity:.85">${AN('r','6;20',3)}</circle>`+T(330,170,'4. Plaque แตก → เกล็ดเลือดเกาะ',{s:14,w:700,c:'--saf'})+T(330,192,'→ ลิ่มเลือดอุด = MI / ischemic stroke',{s:13,c:'--saf'}));
+ return b},steps:S};}
+
+{const S=FIG.lipidSites.steps;
+const SYN=(n=3)=>MV('M80,120 L200,120',{n,lbl:'C',c:'--saf',r:9,dur:2});
+const BILE=(n=3)=>MV('M240,170 C300,230 320,230 360,225 L470,232',{n,lbl:'BA',c:'--agar',r:10,dur:2.6,track:1});
+const ABS=(n=3)=>MV('M470,210 C450,140 340,100 262,104',{n,lbl:'C',c:'--ok',r:9,dur:2.6,track:1});
+FIG.lipidSites={title:'ยาลดไขมันแต่ละตัวทำงานที่ไหน',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,PA('M60,60 C140,40 240,50 260,110 C275,160 230,200 160,200 C100,200 50,170 50,120 C50,90 50,70 60,60 Z','--saf-soft',{sc:'--saf'})+T(150,186,'ตับ (~75%)',{s:15,w:700,a:'middle',c:'--saf'})+
+  PA('M360,200 C400,180 440,220 480,200 C520,180 560,220 600,200 L600,260 C560,280 520,240 480,260 C440,280 400,240 360,260 Z','--agar-soft',{sc:'--agar'})+T(480,300,'ลำไส้ (อาหาร + น้ำดี)',{s:14,w:700,a:'middle',c:'--agar'})+T(300,256,'น้ำดี',{s:11,a:'middle',c:'--muted'}));
+ b+=G(0,SYN()+BILE()+ABS(),{hide:1});
+ b+=G(1,DMV('0,-60',1,PL(140,90,'statin','--violet'))+NOX(110,120,'--violet')+T(20,40,'Statin: HMG-CoA reductase',{s:12.5,w:700,c:'--violet'})+BILE()+ABS(),{hide:2});
+ b+=G(2,DMV('0,60',1,PL(214,140,'bempedoic','--blue'))+NOX(160,120,'--blue')+T(130,226,'Bempedoic acid: ACL',{s:12.5,w:700,c:'--blue'})+T(130,242,'(ต้นทางก่อน statin)',{s:11,c:'--muted'})+BILE()+ABS(),{hide:3});
+ b+=G(3,DMV('0,-60',1,PL(410,190,'ezetimibe','--ok'))+NOX(468,200,'--ok')+T(370,160,'Ezetimibe: NPC1L1',{s:12.5,w:700,c:'--ok'})+T(370,176,'ปิดการดูดซึม cholesterol',{s:11,c:'--muted'})+SYN()+BILE(),{hide:4});
+ b+=G(4,MV('M240,170 C300,230 320,230 360,225 L640,240',{n:3,lbl:'BA',c:'--agar',r:10,dur:2.6,track:1})+DMV('0,60',1,PL(540,226,'resin','--agar'))+T(470,120,'Resin (cholestyramine)',{s:12.5,w:700,c:'--agar'})+T(470,136,'จับกรดน้ำดี ขับทิ้ง ไม่ให้ดูดกลับ',{s:11,c:'--muted'})+SYN(5),{hide:5});
+ b+=G(5,`<circle cx="300" cy="60" r="12" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(300,64,'R',{s:11,w:700,a:'middle',c:'--violet'})+DMV('60,-30',1,PL(350,60,'PCSK9i','--saf'))+T(320,30,'PCSK9i: กัน receptor ถูกทำลาย',{s:12.5,w:700,c:'--saf'})+T(440,96,'Fibrate: PPARα → TG↓',{s:12.5,w:700,c:'--ink2'})+T(440,114,'Niacin: ไขมันสลายน้อยลง',{s:12.5,w:700,c:'--ink2'})+SYN()+BILE()+ABS());
+ return b},steps:S};}
+
+{const S=FIG.lipEzeMoA.steps;const NP=[100,220,340];
+FIG.lipEzeMoA={title:'กลไก ezetimibe: ปิดประตูดูดซึม cholesterol ที่ลำไส้',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(0,20,440,70,'--agar-soft',{rx:0})+T(10,38,'ช่องลำไส้: cholesterol จากอาหาร + น้ำดี',{s:11.5,w:700,a:'start',c:'--agar'})+[0,1,2,3,4].map(i=>R(14+i*84,96,78,64,'--surface',{sc:'--agar',rx:8})).join('')+
+  NP.map(x=>R(x-12,84,24,14,'--ok',{rx:4})).join('')+T(220,176,'NPC1L1 (สีเขียว) ที่ผิวเซลล์ลำไส้',{s:11,w:700,a:'middle',c:'--ok'})+VES(190,40,'เลือด → ตับ')+c12Liv(470,30,.8)+T(538,74,'ตับ',{s:14,w:800,a:'middle',c:'--saf'})+
+  MV('M0,58 L440,58',{n:6,lbl:'C',c:'--agar',r:9,dur:4}));
+ b+=G(1,NP.map(x=>MV(`M${x},60 L${x},206 L520,206 C536,206 540,160 540,120`,{n:2,lbl:'C',c:'--agar',r:9,dur:3.2,track:1})).join(''),{hide:2});
+ b+=G(2,NP.map(x=>DMV('0,-40',1,PL(x,74,'eze','--blue'))+NOX(x,128,'--bad')).join('')+MV('M220,60 L220,206 L520,206 C536,206 540,160 540,120',{n:1,lbl:'C',c:'--agar',r:9,dur:5})+T(632,250,'ดูดซึมลดลง ~20%',{s:12.5,w:800,a:'end',c:'--blue'}));
+ b+=G(3,[500,540,580].map((x,i)=>MV(`M${x-30},214 C${x},214 ${x},170 ${x},120`,{n:2,lbl:'LDL',c:'--violet',r:11,dur:2+i*.3})).join('')+
+  T(16,256,'ตับได้ cholesterol น้อยลง → สร้าง LDL receptor เพิ่ม → LDL ↓ 18–20%',{s:12,w:700,a:'start',c:'--violet'})+T(16,276,'ไม่ลดการดูดซึมวิตามินที่ละลายในไขมัน • ใช้คู่ statin เสริมฤทธิ์ (IMPROVE-IT)',{s:11.5,a:'start',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.lipPcskMoA.steps;const LOOP='M180,62 L180,160 C180,210 300,210 300,160 L300,62 Z';
+FIG.lipPcskMoA={title:'กลไก PCSK9 inhibitor: ให้ LDL receptor กลับมาใช้ซ้ำ',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,VES(0,52,'เลือด')+R(40,60,560,220,'--saf-soft',{sc:'--saf',sw:3,rx:30})+T(586,268,'เซลล์ตับ',{s:13,w:800,a:'end',c:'--saf'})+
+  `<circle cx="520" cy="220" r="30" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(520,224,'lysosome',{s:11,w:700,a:'middle',c:'--bad'})+MV('M0,26 L640,26',{n:6,lbl:'LDL',c:'--violet',r:11,dur:6}));
+ b+=G(0,MV(LOOP,{n:3,lbl:'R',c:'--blue',r:10,dur:4})+MV('M150,26 L180,40 L180,150 C190,180 220,200 240,210',{n:2,lbl:'LDL',c:'--violet',r:11,dur:2.4})+T(200,240,'receptor วนกลับมาใช้ใหม่',{s:11.5,w:700,a:'start',c:'--blue'}),{hide:1});
+ b+=G(1,MV(LOOP,{n:1,lbl:'R',c:'--blue',r:10,dur:4})+MV('M420,26 L420,62 L420,170 C420,200 460,220 490,220',{n:2,lbl:'P+R',c:'--bad',r:14,dur:3,track:1})+T(436,120,'PCSK9 พา receptor',{s:11.5,w:700,a:'start',c:'--bad'})+T(436,136,'ไปทำลาย',{s:11.5,w:700,a:'start',c:'--bad'})+T(70,100,'receptor น้อยลง → LDL ค้างในเลือด',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:2});
+ b+=G(2,DMV('-120,0',1.2,PL(420,26,'mAb','--ok'))+NOX(420,110,'--ok')+T(436,84,'alirocumab, evolocumab จับ PCSK9',{s:11.5,w:700,a:'start',c:'--ok'}));
+ b+=G(2,MV(LOOP,{n:3,lbl:'R',c:'--blue',r:10,dur:3.4}));
+ b+=G(3,[150,220,280].map((x,i)=>MV(`M${x-40},26 L180,40 L180,150 C190,180 220,200 240,210`,{n:1,lbl:'LDL',c:'--violet',r:11,dur:1.6+i*.4})).join('')+T(70,100,'LDL ↓ 50–60%',{s:13,w:800,a:'start',c:'--violet'})+
+  T(320,300,'inclisiran (siRNA) ลดการสร้าง PCSK9 ในตับ ฉีดปีละ 2 ครั้ง',{s:11.5,a:'middle',c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.lipBempMoA.steps;
+FIG.lipBempMoA={title:'กลไก bempedoic acid: ปิดต้นทางก่อน statin',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,40,410,230,'--saf-soft',{sc:'--saf',sw:3,rx:28})+T(410,260,'เซลล์ตับ',{s:13,w:800,a:'end',c:'--saf'})+R(446,40,178,230,'--bad-soft',{sc:'--bad',sw:3,rx:28})+T(535,260,'กล้ามเนื้อ',{s:13,w:800,a:'middle',c:'--bad'})+
+  `<circle cx="120" cy="96" r="20" style="fill:var(--ok-soft);stroke:var(--ok);stroke-width:2"/>`+T(120,100,'ACSVL1',{s:9,w:800,a:'middle',c:'--ok'})+
+  MV('M0,18 L120,18 L120,74',{n:2,lbl:'B',c:'--ink2',r:10,dur:2.2,track:1})+MV('M140,110 C160,130 150,150 126,176',{n:2,lbl:'B*',c:'--blue',r:11,dur:1.6})+T(150,80,'prodrug ถูกกระตุ้นที่ตับ',{s:11.5,w:700,a:'start',c:'--blue'})+
+  MV('M640,18 L535,18 L535,96',{n:2,lbl:'B',c:'--ink2',r:10,dur:2.2,track:1})+T(535,130,'ไม่มี ACSVL1',{s:11.5,w:700,a:'middle',c:'--bad'})+T(535,146,'→ ยาไม่ออกฤทธิ์',{s:11.5,a:'middle',c:'--bad'})+
+  [['citrate',70],['acetyl-CoA',170],['HMG-CoA',270],['cholesterol',370]].map(([t,x])=>T(x,206,t,{s:11.5,w:700,a:'middle',c:'--ink2'})).join('')+T(220,240,'statin ปิดที่ HMG-CoA reductase',{s:10.5,a:'middle',c:'--muted'}));
+ b+=G(1,MV('M70,190 L370,190',{n:5,c:'--agar',r:6,dur:3})+T(220,170,'ตับสร้าง cholesterol',{s:11.5,w:700,a:'middle',c:'--agar'}),{hide:2});
+ b+=G(2,NOX(120,190,'--blue')+T(120,172,'ACL',{s:12,w:800,a:'middle',c:'--blue'})+MV('M70,190 L370,190',{n:1,c:'--agar',r:6,dur:5})+MV('M200,0 L210,30 L230,60',{n:3,lbl:'LDL',c:'--violet',r:11,dur:2})+T(244,60,'LDL receptor ↑ LDL ↓',{s:11.5,w:700,a:'start',c:'--violet'}));
+ b+=G(3,R(446,160,178,60,'--ok-soft',{sc:'--ok'})+T(535,184,'ปวดกล้ามเนื้อน้อย',{s:12,w:800,a:'middle',c:'--ok'})+T(535,202,'ใช้แทน statin ได้',{s:11,a:'middle',c:'--ok'})+T(320,296,'ADR: uric acid สูง',{s:12,w:700,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.lipResinMoA.steps;
+const LOOPBA=(n=3)=>MV('M150,110 C200,140 230,180 280,200 L540,200 C580,140 420,40 170,62',{n,lbl:'BA',c:'--agar',r:10,dur:4.4,track:1});
+FIG.lipResinMoA={title:'กลไก bile acid sequestrant (resin)',h:340,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,c12Liv(20,30,.9)+T(96,80,'ตับ',{s:14,w:800,a:'middle',c:'--saf'})+R(260,172,380,60,'--agar-soft',{rx:0})+T(632,226,'ลำไส้ → อุจจาระ',{s:11.5,w:700,a:'end',c:'--agar'})+VES(252,40,'เลือด',0,240)+T(420,40,'ดูดกลับทางหลอดเลือดดำพอร์ทัล',{s:11,a:'middle',c:'--muted'}));
+ b+=G(0,LOOPBA(),{hide:1});
+ b+=G(1,[330,400,470].map((x,i)=>DMV('0,-70',1+i*.2,`<circle cx="${x}" cy="214" r="12" style="fill:var(--ink2)"/>`)).join('')+T(400,252,'resin จับ BA → ขับทิ้ง',{s:12,w:700,a:'middle',c:'--ink2'})+
+  MV('M150,110 C200,140 230,180 280,200 L640,206',{n:4,lbl:'BA',c:'--agar',r:10,dur:3.4,track:1}));
+ b+=G(2,MV('M80,272 C80,230 90,180 96,124',{n:3,lbl:'LDL',c:'--violet',r:11,dur:2,track:1})+T(250,272,'ตับดึง cholesterol สร้างน้ำดีใหม่',{s:11.5,w:700,a:'start',c:'--violet'})+T(250,288,'LDL receptor ↑ → LDL ↓ 15–30%',{s:11.5,a:'start',c:'--violet'}));
+ b+=G(3,MV('M260,186 L380,206',{n:2,lbl:'ยา',c:'--blue',r:11,dur:2})+T(16,310,'TG อาจสูงขึ้น (ห้ามเมื่อ TG >400) • ท้องผูก ท้องอืด',{s:12,w:700,a:'start',c:'--bad'})+T(16,330,'จับยาอื่น + วิตามิน A D E K → ยาอื่นกิน 1 ชม.ก่อน หรือ 4–6 ชม.หลัง',{s:12,a:'start',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.lipFibMoA.steps;
+FIG.lipFibMoA={title:'กลไก fibrate: PPARα agonist',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,30,330,230,'--saf-soft',{sc:'--saf',sw:3,rx:28})+T(330,250,'เซลล์ตับ',{s:13,w:800,a:'end',c:'--saf'})+
+  `<ellipse cx="150" cy="140" rx="80" ry="54" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(150,106,'นิวเคลียส',{s:11,a:'middle',c:'--violet'})+R(124,128,52,20,'--violet',{rx:5})+T(150,142,'PPARα',{s:10,w:800,a:'middle',c:'--surface'})+
+  `<path d="M86,166 q10,-10 20,0 t20,0 t20,0 t20,0 t20,0 t20,0" style="fill:none;stroke:var(--violet);stroke-width:1.6"/>`+
+  VES(30,90,'หลอดเลือด',370,624)+MV('M370,64 L624,64',{n:4,lbl:'VLDL',c:'--saf',r:15,dur:4}));
+ b+=G(0,MV('M0,10 L60,10 C110,10 140,60 146,126',{n:2,lbl:'fib',c:'--blue',r:12,dur:2.4,track:1})+PULSE(150,138,26,'--violet')+T(30,290,'fenofibrate • gemfibrozil',{s:11.5,w:700,a:'start',c:'--blue'}));
+ b+=G(1,MV('M196,120 C240,90 280,80 320,72',{n:3,c:'--violet',r:4,dur:1.4})+MV('M200,160 C240,190 280,200 320,210',{n:3,c:'--violet',r:4,dur:1.4})+T(176,224,'เปิดยีนเผาผลาญไขมัน',{s:11.5,w:700,a:'middle',c:'--violet'}));
+ b+=G(2,`<circle cx="500" cy="96" r="12" style="fill:var(--ok)"/>`+T(500,100,'LPL',{s:9,w:800,a:'middle',c:'--surface'})+PULSE(500,96,12,'--ok')+MV('M500,80 L540,140 L560,180',{n:3,lbl:'FA',c:'--agar',r:9,dur:1.6})+
+  MV('M300,90 L370,96 L624,104',{n:2,lbl:'HDL',c:'--ok',r:11,dur:3})+T(380,150,'LPL ↑ สลาย TG',{s:11.5,w:700,a:'start',c:'--ok'})+T(380,166,'เผากรดไขมัน ↑ • apoA-I ↑ → HDL ↑',{s:11.5,a:'start',c:'--ok'}));
+ b+=G(3,R(370,196,254,64,'--bad-soft',{sc:'--bad'})+T(497,216,'TG ↓ 20–50% • ใช้เมื่อ TG ≥500',{s:11.5,w:800,a:'middle',c:'--bad'})+T(497,234,'ADR: นิ่ว • myopathy (gemfibrozil+statin)',{s:11,a:'middle',c:'--bad'})+T(497,250,'เสริมฤทธิ์ warfarin',{s:11,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.lipNiaMoA.steps;
+FIG.lipNiaMoA={title:'กลไก niacin',h:310,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,c12Fat(70,80,1.4)+T(100,46,'เนื้อเยื่อไขมัน',{s:13,w:800,a:'middle',c:'--agar'})+c12Liv(400,30,.8)+T(468,74,'ตับ',{s:14,w:800,a:'middle',c:'--saf'})+VES(196,40,'เลือด',300,640));
+ b+=G(0,MV('M150,110 C230,124 320,110 400,84',{n:5,lbl:'FA',c:'--agar',r:9,dur:2.4,track:1})+MV('M520,110 L520,216 L640,216',{n:4,lbl:'VLDL',c:'--saf',r:15,dur:2.4,track:1})+T(270,140,'lipolysis → กรดไขมันอิสระ',{s:11.5,w:700,a:'middle',c:'--agar'}),{hide:1});
+ b+=G(1,DMV('-40,-60',1,PL(150,150,'niacin','--blue'))+NOX(150,110,'--blue')+MV('M150,110 C230,124 320,110 400,84',{n:1,lbl:'FA',c:'--agar',r:9,dur:5})+T(270,140,'กรดไขมันไปตับน้อยลง',{s:11.5,w:700,a:'middle',c:'--blue'}));
+ b+=G(2,MV('M520,110 L520,216 L640,216',{n:1,lbl:'VLDL',c:'--saf',r:15,dur:5})+MV('M440,110 L440,216 L640,224',{n:3,lbl:'HDL',c:'--ok',r:11,dur:2.6})+T(300,170,'VLDL ↓ → TG ↓ LDL ↓',{s:11.5,w:700,a:'start',c:'--saf'})+T(300,186,'HDL ↑ 15–35%',{s:11.5,w:700,a:'start',c:'--ok'}));
+ b+=G(3,R(16,196,270,104,'--bad-soft',{sc:'--bad',rx:14})+T(30,216,'ผิวหนัง: หน้าแดง',{s:12.5,w:800,a:'start',c:'--bad'})+`<line x1="30" y1="244" x2="270" y2="244" style="stroke:var(--bad);stroke-width:3"><animate attributeName="stroke-width" values="3;9;3" dur="1.4s" begin="indefinite" repeatCount="indefinite"/></line>`+
+  MV('M30,232 L270,232',{n:3,lbl:'PG',c:'--saf',r:10,dur:2})+DMV('0,-40',1,PL(150,270,'aspirin ก่อน 30 นาที','--blue'))+T(150,294,'กินพร้อมอาหาร • เลี่ยงของร้อน/แอลกอฮอล์',{s:10.5,a:'middle',c:'--ink2'})+T(300,296,'ADR: น้ำตาล ↑ uric acid ↑ ตับอักเสบ',{s:11.5,w:700,a:'start',c:'--bad'}));
+ return b},steps:S};}
+
+/* ===== Stroke + VTE animated scenes ===== */
+const BRAIN=(cx,cy,sx,sy)=>`<path transform="translate(${cx},${cy}) scale(${sx},${sy})" d="M-100,20 C-110,-40 -60,-80 0,-80 C60,-82 110,-40 104,10 C100,50 70,70 30,70 C10,80 -30,80 -50,64 C-90,60 -98,44 -100,20 Z" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2.5"/>`;
+
+{const S=FIG.strokeType.steps;const ART='M40,300 C80,260 120,220 170,180 C200,150 250,120 320,110';
+FIG.strokeType={title:'Stroke 2 แบบ และ "เขตที่ยังกู้ได้" (penumbra)',h:310,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,BRAIN(240,150,1.9,1.5)+PA(ART,'none',{sc:'--bad',sw:6})+PA('M170,180 C200,200 240,220 300,226','none',{sc:'--bad',sw:4})+T(240,40,'สมอง',{s:13,w:800,a:'middle',c:'--violet'})+
+  T(456,40,'ischemic ~88%',{s:13,w:800,a:'start',c:'--blue'})+T(456,60,'hemorrhagic ~12%',{s:13,w:800,a:'start',c:'--saf'}));
+ b+=G(0,MV(ART,{n:5,c:'--bad',r:4,dur:2})+MV('M40,300 C80,260 120,220 170,180 C200,200 240,220 300,226',{n:3,c:'--bad',r:4,dur:2}),{hide:1});
+ b+=G(1,`<circle cx="320" cy="110" r="56" style="fill:var(--agar);opacity:.25">${AN('opacity','.1;.35;.1',1.6,{rep:'indefinite'})}</circle><circle cx="320" cy="110" r="26" style="fill:var(--ink2);opacity:.75"/>`+
+  `<circle cx="250" cy="126" r="9" style="fill:var(--bad)"/>`+T(400,84,'core ตายเร็ว',{s:11.5,w:800,a:'start',c:'--ink2'})+T(390,170,'penumbra ยังกู้ได้',{s:11.5,w:800,a:'start',c:'--agar'})+MV('M40,300 C80,260 120,220 170,180 C200,150 230,134 246,128',{n:3,c:'--bad',r:4,dur:2})+
+  MV('M40,300 C80,260 120,220 170,180 C200,200 240,220 300,226',{n:3,c:'--bad',r:4,dur:2}),{hide:2});
+ b+=G(2,`<circle cx="320" cy="110" r="26" style="fill:var(--ink2);opacity:.75"/><circle cx="320" cy="110" r="56" style="fill:var(--ok);opacity:0">${AN('opacity','0;.3',2)}</circle><circle cx="250" cy="126" r="9" style="fill:var(--bad)">${AN('r','9;0',2)}</circle>`+
+  DMV('-120,120',1.2,PL(220,96,'tPA / thrombectomy','--blue'))+MV(ART,{n:5,c:'--bad',r:4,dur:2})+T(456,110,'Time is brain',{s:14,w:800,a:'start',c:'--blue'})+T(456,130,'ช้า 1 นาที',{s:12,a:'start',c:'--blue'})+T(456,148,'เซลล์ตาย ~1.9 ล้าน',{s:12,a:'start',c:'--blue'}),{hide:3});
+ b+=G(3,MV(ART,{n:5,c:'--bad',r:4,dur:2})+`<circle cx="290" cy="224" r="6" style="fill:var(--saf);opacity:.8">${AN('r','6;40',2.4)}</circle>`+T(456,200,'หลอดเลือดแตก',{s:13,w:800,a:'start',c:'--saf'})+T(456,220,'ความดันสูง, โป่งพอง,',{s:11.5,a:'start',c:'--saf'})+T(456,238,'ยาต้านการแข็งตัวเลือด',{s:11.5,a:'start',c:'--saf'})+
+  R(440,256,184,40,'--bad-soft',{sc:'--bad'})+T(532,281,'CT สมองก่อนเสมอ',{s:13,w:800,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.afClot.steps;const EMB='M240,104 C280,40 360,30 430,56 C470,72 490,80 506,86';
+FIG.afClot={title:'AF → ลิ่มเลือดในหัวใจ → หลุดไปอุดสมอง',h:290,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(60,140,90,100,'--saf-soft',{sc:'--saf',rx:16})+R(150,140,90,100,'--saf-soft',{sc:'--saf',rx:16})+T(105,196,'RV',{s:12,w:700,a:'middle',c:'--saf'})+T(195,196,'LV',{s:12,w:700,a:'middle',c:'--saf'})+
+  `<g><rect x="150" y="80" width="90" height="58" rx="16" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>${ANT('0,0;1,-1;-1,1;0,0',.25,{rep:'indefinite'})}</g>`+T(195,114,'LA',{s:12,w:800,a:'middle',c:'--bad'})+R(60,80,88,58,'--saf-soft',{sc:'--saf',rx:16})+T(104,114,'RA',{s:12,w:700,a:'middle',c:'--saf'})+
+  `<ellipse cx="250" cy="90" rx="18" ry="14" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(270,72,'LAA',{s:11,w:800,a:'start',c:'--bad'})+BRAIN(540,110,.8,.7)+T(540,184,'สมอง',{s:12,w:800,a:'middle',c:'--violet'})+
+  MV('M238,90 A12,10 0 1,1 238,91',{n:3,c:'--bad',r:3.5,dur:2.6})+T(16,40,'AF: ห้องบนสั่นพลิ้ว ไม่บีบเป็นจังหวะ',{s:12,w:800,a:'start',c:'--bad'})+T(16,58,'เลือดวนช้าใน LAA',{s:11.5,a:'start',c:'--bad'}));
+ b+=G(1,`<circle cx="250" cy="90" r="3" style="fill:var(--bad)">${AN('r','3;9',1.6)}</circle>`+MV(EMB,{n:1,c:'--bad',r:9,dur:3,track:1})+T(330,24,'ลิ่มเลือดแดง (fibrin มาก) หลุด',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:3});
+ b+=G(2,`<circle cx="510" cy="88" r="9" style="fill:var(--bad)"/><ellipse cx="560" cy="110" rx="34" ry="24" style="fill:var(--ink2);opacity:0">${AN('opacity','0;.6',1.6)}</ellipse>`+T(450,220,'cardioembolic stroke',{s:12.5,w:800,a:'middle',c:'--violet'})+T(450,238,'มักรุนแรงกว่าแบบอื่น',{s:11.5,a:'middle',c:'--violet'}),{hide:3});
+ b+=G(3,DMV('0,-60',1,PL(250,140,'DOAC','--blue'))+NOX(250,90,'--blue')+R(16,252,608,34,'--blue-soft',{sc:'--blue'})+T(320,274,'anticoagulant (ไม่ใช่ antiplatelet) • warfarin เมื่อลิ้นโลหะ หรือ MS ปานกลาง-รุนแรง',{s:11.5,w:800,a:'middle',c:'--blue'})+
+  T(450,220,'DOAC: apixaban, rivaroxaban,',{s:11.5,w:700,a:'middle',c:'--blue'})+T(450,238,'dabigatran, edoxaban',{s:11.5,w:700,a:'middle',c:'--blue'}));
+ return b},steps:S};}
+
+{const S=FIG.dvtPe.steps;const VEIN='M90,300 L90,150 C90,110 170,100 240,150';const PA2='M300,150 C340,100 400,90 452,106';
+FIG.dvtPe={title:'DVT ที่ขา → หลุดไปอุดปอด (PE)',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<path d="M60,140 L60,316 L120,316 L120,140 Z" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:2"/>`+PA(VEIN,'none',{sc:'--blue',sw:6})+T(90,130,'ขา: femoral/popliteal',{s:11,w:700,a:'middle',c:'--agar'})+
+  HEART(280,170,1.2,'--saf',.8)+T(280,224,'หัวใจห้องขวา',{s:11.5,w:700,a:'middle',c:'--saf'})+PA(PA2,'none',{sc:'--blue',sw:5})+
+  `<ellipse cx="480" cy="140" rx="50" ry="70" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/><ellipse cx="590" cy="140" rx="40" ry="66" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2"/>`+T(530,232,'ปอด',{s:12,w:800,a:'middle',c:'--bad'})+MV(VEIN,{n:4,c:'--blue',r:4,dur:2.4}));
+ b+=G(0,`<circle cx="90" cy="270" r="10" style="fill:var(--bad)"/><path d="M60,240 L60,316 L120,316 L120,240" style="fill:none;stroke:var(--bad);stroke-width:4;opacity:.5">${AN('stroke-opacity','.2;.8;.2',1.4,{rep:'indefinite'})}</path>`+T(140,270,'บวมข้างเดียว ปวด แดงร้อน',{s:11.5,w:700,a:'start',c:'--bad'})+T(140,288,'~60% ไม่มีอาการ',{s:11,a:'start',c:'--ink2'}),{hide:1});
+ b+=G(1,MV(VEIN,{n:1,c:'--bad',r:10,dur:3,track:1})+T(130,80,'ลิ่มเลือดหลุดตามหลอดเลือดดำ',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:2});
+ b+=G(2,`<circle cx="452" cy="106" r="10" style="fill:var(--bad)"/><ellipse cx="480" cy="110" rx="30" ry="34" style="fill:var(--ink2);opacity:0">${AN('opacity','0;.5',1.6)}</ellipse>`+MV(PA2,{n:1,c:'--bad',r:10,dur:2})+
+  T(360,270,'PE: หอบเหนื่อย หายใจเร็ว เจ็บอก pleuritic',{s:11.5,w:700,a:'start',c:'--bad'})+T(360,288,'ไอเป็นเลือด เป็นลม HR เร็ว',{s:11.5,a:'start',c:'--bad'}));
+ b+=G(3,HEART(280,170,1.6,'--bad',.4)+T(200,60,'หัวใจห้องขวาทำงานไม่ไหว → BP ตก shock',{s:12,w:800,a:'start',c:'--bad'})+R(16,6,230,34,'--violet-soft',{sc:'--violet'})+T(131,28,'DVT + PE = VTE',{s:13,w:800,a:'middle',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.virchow.steps;
+FIG.virchow={title:'Virchow’s triad: 3 ปัจจัยที่ทำให้เลือดแข็งตัวในหลอดเลือดดำ',h:320,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,110,608,80,'--surface2',{sc:'--blue',rx:20})+`<rect x="26" y="120" width="588" height="60" rx="14" style="fill:var(--blue-soft)"/>`+T(30,104,'หลอดเลือดดำ',{s:11.5,w:700,a:'start',c:'--blue'})+
+  MV('M16,140 L624,140',{n:3,c:'--bad',r:6,dur:7})+MV('M16,164 L624,164',{n:3,c:'--bad',r:6,dur:8})+T(16,40,'1. Stasis: เลือดไหลช้า',{s:13,w:800,a:'start',c:'--blue'})+T(16,60,'นอนติดเตียง >3 วัน • นั่งนาน • อัมพาต • HF',{s:11.5,a:'start',c:'--ink2'}));
+ b+=G(1,`<path d="M280,110 l10,10 l10,-10 l10,10 l10,-10" style="fill:none;stroke:var(--saf);stroke-width:4"/>`+[0,1,2].map(i=>MV(`M${200+i*30},150 C250,140 280,124 ${292+i*10},122`,{n:1,c:'--agar',r:5,dur:1.2+i*.3})).join('')+
+  T(330,40,'2. Endothelial injury',{s:13,w:800,a:'start',c:'--saf'})+T(330,60,'ผ่าตัด (สะโพก/เข่า) • กระดูกหัก • สายสวน',{s:11.5,a:'start',c:'--ink2'}));
+ b+=G(2,MV('M16,152 L300,150',{n:6,lbl:'F',c:'--violet',r:8,dur:2.4})+T(16,222,'3. Hypercoagulability: เลือดแข็งตัวง่าย',{s:13,w:800,a:'start',c:'--violet'})+T(16,242,'มะเร็ง • เคมีบำบัด • ตั้งครรภ์/หลังคลอด • ยาคุม HRT • protein C/S • APS',{s:11.5,a:'start',c:'--ink2'}));
+ b+=G(3,`<g><ellipse cx="310" cy="150" rx="10" ry="8" style="fill:var(--bad)">${AN('rx','10;70',2.4)}${AN('ry','8;28',2.4)}</ellipse>${[0,1,2,3].map(i=>`<line x1="${260+i*30}" y1="128" x2="${280+i*30}" y2="172" style="stroke:var(--agar);stroke-width:2;opacity:0">${AN('opacity','0;1',1+i*.3)}</line>`).join('')}</g>`+
+  T(320,274,'ลิ่มเลือดสีแดง (fibrin + RBC) → anticoagulant',{s:13,w:800,a:'middle',c:'--bad'})+T(320,294,'(ลิ่มเลือดในหลอดเลือดแดงใช้ antiplatelet)',{s:11.5,a:'middle',c:'--ink2'})+DMV('0,60',1,PL(480,214,'anticoagulant','--blue')));
+ return b},steps:S};}
+
+/* ===== HIV / OIs / TB animated scenes ===== */
+const VIR=(x,y,r=18,c='--bad')=>`<g><circle cx="${x}" cy="${y}" r="${r}" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:2.5"/>${[0,60,120,180,240,300].map(a=>{const ra=a*Math.PI/180;return `<line x1="${x+r*Math.cos(ra)}" y1="${y+r*Math.sin(ra)}" x2="${x+(r+7)*Math.cos(ra)}" y2="${y+(r+7)*Math.sin(ra)}" style="stroke:var(${c});stroke-width:3;stroke-linecap:round"/>`}).join('')}<path d="M${x-8},${y} q4,-6 8,0 t8,0" style="fill:none;stroke:var(${c});stroke-width:2"/></g>`;
+const ENZ=(x,y,t,c)=>`<circle cx="${x}" cy="${y}" r="20" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:2"/>`+T(x,y+4,t,{s:10,w:800,a:'middle',c});
+
+{const S=FIG.hivLife.steps;
+FIG.hivLife={title:'วงจรชีวิต HIV = แผนที่ว่ายาแต่ละกลุ่มไปตัดตรงไหน',h:360,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,`<ellipse cx="330" cy="200" rx="290" ry="148" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:3"/>`+T(560,330,'CD4 T-cell',{s:13,w:800,a:'end',c:'--blue'})+
+  `<ellipse cx="420" cy="210" rx="120" ry="70" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/>`+T(420,160,'นิวเคลียส',{s:11,a:'middle',c:'--violet'})+`<path d="M320,220 q12,-14 24,0 t24,0 t24,0 t24,0 t24,0 t24,0 t24,0" style="fill:none;stroke:var(--violet);stroke-width:2"/>`+
+  `<path d="M120,52 l0,14 m-8,-6 l8,6 l8,-6" style="stroke:var(--blue);stroke-width:3;fill:none"/>`+T(100,44,'CD4 + CCR5',{s:10.5,w:700,a:'end',c:'--blue'}));
+ b+=G(0,DMV('-70,-30',1.6,VIR(120,30)),{hide:2});
+ b+=G(1,MV('M120,56 C130,90 150,120 180,140',{n:2,lbl:'RNA',c:'--saf',r:12,dur:2,track:1})+T(150,80,'หลอมเปลือก ปล่อย RNA',{s:11,w:700,a:'start',c:'--saf'})+DMV('-40,0',1,PL(60,90,'maraviroc','--muted')));
+ b+=G(2,ENZ(200,170,'RT','--saf')+MV('M180,140 L196,160',{n:2,lbl:'RNA',c:'--saf',r:11,dur:1.2})+MV('M220,180 C250,190 280,200 300,206',{n:3,lbl:'DNA',c:'--violet',r:12,dur:1.8,track:1})+
+  DMV('-60,60',1,PL(160,224,'NRTI','--blue'))+DMV('-60,60',1.2,PL(230,240,'NNRTI','--blue'))+T(110,260,'ขั้นนี้คนไม่มี → เป้ายาหลัก',{s:11,w:700,a:'start',c:'--blue'}));
+ b+=G(3,ENZ(340,190,'INT','--violet')+`<rect x="368" y="214" width="48" height="10" rx="4" style="fill:var(--saf);opacity:0">${AN('opacity','0;1',1.6)}</rect>`+T(420,260,'แทรก DNA ไวรัสเข้า DNA ของเรา',{s:11.5,w:700,a:'middle',c:'--violet'})+DMV('0,60',1,PL(340,140,'INSTI (DTG)','--ok')));
+ b+=G(4,MV('M440,140 C420,120 380,104 320,100',{n:3,lbl:'mRNA',c:'--saf',r:14,dur:1.8})+`<g>${[0,1,2,3,4].map(i=>`<circle cx="${230+i*14}" cy="100" r="6" style="fill:var(--agar);opacity:0">${AN('opacity','0;1',.4+i*.3)}</circle>`).join('')}</g>`+T(260,124,'โปรตีนสายยาว (ยังใช้ไม่ได้)',{s:11,w:700,a:'middle',c:'--agar'}));
+ b+=G(5,ENZ(300,60,'PR','--agar')+`<g>${ANT('0,0;60,-70',2.4,{rep:'indefinite'})}${VIR(330,52,13)}</g>`+DMV('60,0',1,PL(250,30,'PI','--ok'))+T(420,40,'ตัดสายโปรตีน → ไวรัสใหม่ mature',{s:11.5,w:700,a:'start',c:'--agar'}));
+ b+=G(6,R(16,300,400,52,'--surface2',{sc:'--line'})+T(216,320,'4 กลุ่ม: NRTI • NNRTI • INSTI • PI',{s:12.5,w:800,a:'middle',c:'--blue'})+T(216,340,'booster (ritonavir, cobicistat) ยับยั้ง CYP3A4 → ยาอื่นอยู่นาน',{s:11,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.iris.steps;const BUG=[[300,140],[330,120],[350,152],[316,166]];
+FIG.iris={title:'IRIS: เมื่อภูมิคุ้มกันฟื้นแล้ว "ตื่นมาสู้" แรงเกินไป',h:260,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,R(16,20,608,200,'--agar-soft',{sc:'--agar',rx:24})+T(30,42,'เนื้อเยื่อที่มีเชื้อค้าง (TB, crypto)',{s:11.5,w:700,a:'start',c:'--agar'})+BUG.map(([x,y])=>`<rect x="${x-10}" y="${y-4}" width="20" height="8" rx="4" style="fill:var(--bad)"/>`).join(''));
+ b+=G(0,MV('M40,200 C120,190 200,170 280,150',{n:1,lbl:'T',c:'--blue',r:10,dur:3.6})+T(40,240,'ก่อนเริ่มยา: CD4 ต่ำ อักเสบน้อย อาการไม่ชัด',{s:12,w:700,a:'start',c:'--ink2'}),{hide:1});
+ b+=G(1,`<circle cx="325" cy="142" r="40" style="fill:var(--bad);opacity:.2">${AN('r','40;90',2)}${AN('opacity','.1;.4;.25',2,{rep:'indefinite'})}</circle>`+[0,1,2,3,4].map(i=>MV(`M${40+i*20},${210-i*4} C${150+i*10},190 220,170 ${290+i*8},${150-i*4}`,{n:2,lbl:'T',c:'--blue',r:10,dur:1.6+i*.2})).join('')+
+  DMV('-80,0',1,PL(80,70,'ART','--blue'))+T(40,240,'CD4 ฟื้นเร็ว → อักเสบแรง (IRIS) ใน 2–12 สัปดาห์',{s:12,w:800,a:'start',c:'--bad'}),{hide:2});
+ b+=G(2,`<circle cx="325" cy="142" r="70" style="fill:var(--bad);opacity:.3">${AN('opacity','.4;.1',2)}</circle>`+[0,1,2].map(i=>MV(`M${40+i*20},${210-i*4} C150,190 220,170 ${290+i*8},${150-i*4}`,{n:1,lbl:'T',c:'--blue',r:10,dur:2})).join('')+DMV('80,0',1,PL(520,70,'NSAIDs / prednisolone','--violet'))+
+  T(40,240,'Paradoxical: รักษาการอักเสบ ไม่หยุด ART',{s:12,w:800,a:'start',c:'--violet'})+T(40,256,'Unmasking: OI ใหม่โผล่ → รักษา OI นั้นด้วย',{s:11.5,a:'start',c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.nrtiChain.steps;const bead=(x,c,oh=1)=>`<circle cx="${x}" cy="130" r="13" style="fill:var(${c})"/>`+(oh?`<text x="${x+16}" y="122" font-size="8" font-weight="800" style="fill:var(--ok)">OH</text>`:'');
+FIG.nrtiChain={title:'NRTI ทำงานอย่างไร: "นิวคลีโอไทด์ปลอม" ที่ทำให้สาย DNA ต่อไม่ได้',h:240,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<path d="M30,80 L610,80" style="stroke:var(--saf);stroke-width:4"/>`+[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<circle cx="${50+i*52}" cy="80" r="8" style="fill:var(--saf)"/>`).join('')+T(30,64,'RNA ไวรัส (แม่แบบ)',{s:11.5,w:700,a:'start',c:'--saf'})+
+  `<g>${ANT('0,0;156,0',4,{rep:'indefinite'})}<ellipse cx="80" cy="104" rx="34" ry="22" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2;opacity:.8"/><text x="80" y="108" font-size="11" font-weight="800" text-anchor="middle" style="fill:var(--blue)">RT</text></g>`);
+ b+=G(1,[0,1,2].map(i=>`<g opacity="0">${AN('opacity','0;1',.6+i*.7)}${bead(50+i*52,'--violet')}</g>`).join('')+MV('M200,220 C200,180 210,150 206,140',{n:2,c:'--violet',r:10,dur:1.6})+T(30,180,'แต่ละตัวมี 3′-OH ให้ตัวถัดไปมาต่อ',{s:12,w:700,a:'start',c:'--violet'}),{hide:4});
+ b+=G(2,`<g opacity="0">${AN('opacity','0;1',1)}${bead(206,'--bad',0)}<text x="206" y="134" font-size="9" font-weight="800" text-anchor="middle" style="fill:#fff">NRTI</text></g>`+`<g>${ANT('0,0;0,-50;0,0',1.4,{rep:'indefinite'})}<circle cx="258" cy="190" r="12" style="fill:var(--violet);opacity:.6"/></g>`+NOX(232,130,'--bad')+T(260,180,'ไม่มี 3′-OH → chain termination',{s:12,w:800,a:'start',c:'--bad'}));
+ b+=G(3,[0,1,2].map(i=>`<g opacity="0">${AN('opacity','0;1',.6+i*.6)}<circle cx="${480+i*22}" cy="200" r="8" style="fill:var(--agar)"/><text x="${480+i*22}" y="203" font-size="8" font-weight="800" text-anchor="middle" style="fill:#fff">P</text></g>`).join('')+T(400,204,'kinase เติม',{s:11,w:700,a:'end',c:'--agar'})+T(30,226,'prodrug (TDF มี P มาแล้ว 1) • รบกวน pol-γ ของ mitochondria → lactic acidosis/lipoatrophy',{s:11,a:'start',c:'--ink2'}));
+ return b},steps:S};}
+
+{const S=FIG.cypBoost.steps;
+const BAR=(to,c)=>R(520,40,40,200,'--surface2',{rx:6})+`<rect x="520" y="140" width="40" height="40" style="fill:var(--ok);opacity:.25"/>`+T(570,164,'ช่วงรักษา',{s:10.5,a:'start',c:'--ok'})+`<rect x="526" y="160" width="28" height="74" rx="4" style="fill:var(${c})"><animate attributeName="y" values="160;${to}" dur="1.6s" begin="indefinite" fill="freeze"/><animate attributeName="height" values="74;${234-to}" dur="1.6s" begin="indefinite" fill="freeze"/></rect>`+T(540,262,'ระดับยาในเลือด',{s:11,w:700,a:'middle',c:'--ink2'});
+const PAC=(x,y)=>`<path d="M${x},${y} L${x+20},${y-12} A23,23 0 1,0 ${x+20},${y+12} Z" style="fill:var(--agar)"/>`;
+FIG.cypBoost={title:'ทำไม Ritonavir ทำให้ยาอื่นเป็นพิษ และ Rifampicin ทำให้ยาไม่พอ',h:300,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,c12Liv(20,40,1.4)+T(140,60,'ตับ',{s:14,w:800,a:'middle',c:'--saf'}));
+ b+=G(0,PAC(200,130)+MV('M0,250 C100,250 160,200 200,134',{n:4,lbl:'ยา',c:'--blue',r:11,dur:2.4})+BAR(160,'--ok')+T(16,280,'CYP3A4 กำจัดยาพอดี',{s:12,w:700,a:'start',c:'--agar'}),{hide:1});
+ b+=G(1,PAC(200,130)+DMV('0,-60',1,PL(220,190,'ritonavir/cobi','--bad'))+NOX(204,130,'--bad')+MV('M0,250 C100,250 160,220 300,230',{n:5,lbl:'ยา',c:'--blue',r:11,dur:2.4})+BAR(60,'--bad')+
+  T(16,272,'inhibitor: ยาสะสมเป็นพิษ',{s:12,w:800,a:'start',c:'--bad'})+T(16,290,'simvastatin→rhabdo • midazolam • ergotamine • fluticasone',{s:10.5,a:'start',c:'--bad'}),{hide:2});
+ b+=G(2,[[200,130],[120,110],[160,170],[240,180],[90,150]].map(([x,y],i)=>`<g opacity="0">${AN('opacity','0;1',.4+i*.3)}${PAC(x,y)}</g>`).join('')+MV('M0,250 C100,250 160,200 200,134',{n:4,lbl:'ยา',c:'--blue',r:11,dur:2.4})+BAR(210,'--blue')+DMV('-60,0',1,PL(330,90,'rifampicin','--saf'))+
+  T(16,272,'inducer: ยาถูกทำลายเร็ว → ไวรัสดื้อ',{s:12,w:800,a:'start',c:'--saf'})+T(16,290,'DTG 50 mg วันละ 2 ครั้ง • ยาคุมเสื่อม',{s:11,a:'start',c:'--saf'}));
+ return b},steps:S};}
+
+{const S=FIG.folate.steps;
+FIG.folate={title:'Co-trimoxazole, pyrimethamine และ leucovorin บนเส้นทางสร้างโฟเลต',h:260,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,[['PABA',60],['DHF',260],['THF',460],['DNA',600]].map(([t,x])=>R(x-40,70,80,40,'--surface2',{sc:'--line'})+T(x,95,t,{s:13,w:800,a:'middle'})).join('')+T(160,62,'DHPS',{s:11,w:800,a:'middle',c:'--agar'})+T(360,62,'DHFR',{s:11,w:800,a:'middle',c:'--blue'})+
+  T(16,30,'เชื้อและเซลล์ที่แบ่งตัวเร็ว สร้างโฟเลตเอง',{s:12,w:700,a:'start',c:'--ink2'}));
+ b+=G(0,MV('M100,90 L560,90',{n:5,c:'--agar',r:6,dur:3}),{hide:1});
+ b+=G(1,DMV('0,60',1,PL(160,140,'SMX / dapsone','--agar'))+NOX(160,90,'--agar')+MV('M100,90 L150,90',{n:2,c:'--agar',r:6,dur:1}),{hide:2});
+ b+=G(2,DMV('0,60',1,PL(160,140,'SMX','--agar'))+NOX(160,90,'--agar')+DMV('0,60',1,PL(360,140,'TMP / pyrimethamine','--blue'))+NOX(360,90,'--blue')+T(320,190,'ตัด 2 จุด = เสริมฤทธิ์ (co-trimoxazole)',{s:12.5,w:800,a:'middle',c:'--blue'}),{hide:3});
+ b+=G(3,R(16,170,608,80,'--bad-soft',{sc:'--bad',rx:16})+T(30,190,'เซลล์ไขกระดูกของคน: pyrimethamine กด DHFR ด้วย',{s:11.5,w:800,a:'start',c:'--bad'})+NOX(360,90,'--blue')+
+  MV('M200,232 L340,232',{n:2,lbl:'FA',c:'--ink2',r:10,dur:1.6})+NOX(352,232,'--bad')+T(200,214,'folic acid ต้องผ่าน DHFR → ไม่ได้ผล',{s:10.5,a:'start',c:'--ink2'})+
+  MV('M380,240 C420,200 440,140 460,114',{n:3,lbl:'LV',c:'--ok',r:10,dur:1.8,track:1})+T(616,206,'leucovorin = THF สำเร็จรูป',{s:10.5,w:700,a:'end',c:'--ok'})+T(616,222,'ข้าม DHFR ได้',{s:10.5,w:700,a:'end',c:'--ok'}));
+ return b},steps:S};}
+
+{const S=FIG.tbInfect.steps;const ROD=(x,y,c='--bad')=>`<rect x="${x-8}" y="${y-3}" width="16" height="6" rx="3" style="fill:var(${c})"/>`;
+FIG.tbInfect={title:'จากการหายใจรับเชื้อ ถึงวัณโรคระยะแฝงและระยะแพร่เชื้อ',h:310,anim:1,dur:5400,body:()=>{let b='';
+ b+=G(0,`<circle cx="60" cy="90" r="34" style="fill:var(--surface2);stroke:var(--ink2);stroke-width:2"/>`+T(60,140,'ผู้ป่วยไอ',{s:11.5,w:700,a:'middle',c:'--ink2'})+`<circle cx="360" cy="150" r="96" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2.5"/>`+T(360,262,'ถุงลม',{s:12,w:800,a:'middle',c:'--bad'})+
+  MV('M96,90 C180,80 240,100 300,130',{n:4,lbl:'',c:'--blue',r:5,dur:2})+T(110,60,'ละอองเสมหะ',{s:11,w:700,a:'start',c:'--blue'})+T(470,60,'rod • mycolic acid หนา',{s:11,w:700,a:'start',c:'--bad'})+T(470,76,'ย้อมติด acid-fast (AFB)',{s:11,a:'start',c:'--bad'}));
+ b+=G(1,`<circle cx="360" cy="150" r="30" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2"/>`+T(360,198,'macrophage',{s:11,w:700,a:'middle',c:'--blue'})+MV('M300,130 L352,148',{n:2,lbl:'',c:'--bad',r:4,dur:1.4})+ROD(360,150)+ROD(366,140),{hide:3});
+ b+=G(2,[0,45,90,135,180,225,270,315].map((a,i)=>{const r=a*Math.PI/180;return `<g opacity="0">${AN('opacity','0;1',.4+i*.2)}<circle cx="${360+52*Math.cos(r)}" cy="${150+52*Math.sin(r)}" r="13" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2"/></g>`}).join('')+T(470,150,'granuloma ล้อมขังเชื้อ',{s:12,w:800,a:'start',c:'--violet'})+T(470,168,'= Latent TB: ไม่มีอาการ',{s:11.5,a:'start',c:'--violet'})+T(470,184,'ไม่แพร่เชื้อ "ระเบิดเวลา"',{s:11.5,a:'start',c:'--violet'}),{hide:3});
+ b+=G(3,`<circle cx="360" cy="150" r="10" style="fill:var(--surface);stroke:var(--ink2);stroke-width:2">${AN('r','10;50',2)}</circle>`+[[330,120],[380,110],[400,170],[330,180],[360,200],[310,150]].map(([x,y],i)=>`<g opacity="0">${AN('opacity','0;1',.3+i*.25)}${ROD(x,y)}</g>`).join('')+
+  MV('M300,130 C240,100 180,80 96,90',{n:4,lbl:'',c:'--bad',r:5,dur:2})+T(470,130,'Active TB: โพรง แพร่เชื้อ',{s:12,w:800,a:'start',c:'--bad'})+T(470,148,'ไอ ≥2 สัปดาห์ ไข้ต่ำ ๆ',{s:11.5,a:'start',c:'--bad'})+T(470,164,'เหงื่อกลางคืน น้ำหนักลด',{s:11.5,a:'start',c:'--bad'}));
+ b+=G(4,[['AFB smear',16],['CXR',130],['Xpert MTB/RIF',224],['culture + DST = gold',380]].map(([t,x],i)=>`<g opacity="0">${AN('opacity','0;1',.4+i*.4)}${R(x,274,t.length*7+20,28,'--blue-soft',{sc:'--blue',rx:14})}${T(x+(t.length*7+20)/2,293,t,{s:11.5,w:800,a:'middle',c:'--blue'})}</g>`).join(''));
+ return b},steps:S};}
+
+{const S=FIG.tbWall.steps;
+FIG.tbWall={title:'ยาวัณโรคแต่ละตัวโจมตีส่วนไหนของเชื้อ',h:340,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<rect id="twMy" x="20" y="20" width="600" height="250" rx="120" style="fill:var(--agar-soft);stroke:var(--agar);stroke-width:3"/><rect id="twAg" x="40" y="40" width="560" height="210" rx="105" style="fill:var(--ok-soft);stroke:var(--ok);stroke-width:2"/><rect x="58" y="58" width="524" height="174" rx="87" style="fill:var(--surface);stroke:var(--blue);stroke-width:2"/>`+
+  T(320,34,'mycolic acid (ไขมัน นอกสุด)',{s:10.5,w:800,a:'middle',c:'--agar'})+T(320,53,'arabinogalactan',{s:10,w:800,a:'middle',c:'--ok'})+
+  `<path d="M140,150 q14,-20 28,0 t28,0 t28,0" style="fill:none;stroke:var(--violet);stroke-width:3"/>`+T(182,182,'DNA',{s:10.5,w:700,a:'middle',c:'--violet'})+ENZ(300,130,'RNA pol','--saf')+ENZ(420,170,'30S','--blue')+R(500,120,40,30,'--bad-soft',{sc:'--bad',rx:6})+T(520,140,'ATP',{s:9.5,w:800,a:'middle',c:'--bad'}));
+ b+=G(1,MV('M0,300 C40,300 70,280 90,250',{n:2,lbl:'H',c:'--blue',r:10,dur:1.6})+ENZ(100,226,'KatG','--blue')+MV('M118,214 C150,200 170,190 190,160',{n:2,lbl:'H*',c:'--blue',r:11,dur:1.4})+NOX(90,48,'--blue')+`<animate href="#twMy" attributeName="fill-opacity" values="1;.25" dur="1.6s" begin="indefinite" fill="freeze"/>`+T(16,326,'INH: KatG กระตุ้น → ยับยั้ง InhA → สร้าง mycolic acid ไม่ได้',{s:11.5,w:800,a:'start',c:'--blue'}),{hide:2});
+ b+=G(2,DMV('-60,60',1,PL(110,290,'E','--ok'))+NOX(60,140,'--ok')+`<animate href="#twAg" attributeName="fill-opacity" values="1;.2" dur="1.6s" begin="indefinite" fill="freeze"/>`+T(16,326,'EMB: ยับยั้ง arabinosyl transferase (bacteriostatic ช่วยกันดื้อ)',{s:11.5,w:800,a:'start',c:'--ok'}),{hide:3});
+ b+=G(3,DMV('0,-60',1,PL(300,96,'R','--saf'))+NOX(300,130,'--saf')+MV('M320,130 L360,110',{n:1,lbl:'mRNA',c:'--saf',r:13,dur:3})+T(16,326,'RIF: จับ RNA polymerase → ถอดรหัสไม่ได้ (แรงสุด หัวใจของสูตร)',{s:11.5,w:800,a:'start',c:'--saf'}),{hide:4});
+ b+=G(4,DMV('0,60',1,PL(182,210,'FQ (gyrase)','--violet'))+NOX(182,150,'--violet')+DMV('0,60',1,PL(420,210,'AG','--blue'))+NOX(420,170,'--blue')+T(16,326,'FQ: DNA gyrase/topo IV • aminoglycoside: ribosome 30S',{s:11.5,w:800,a:'start',c:'--violet'}),{hide:5});
+ b+=G(5,DMV('60,0',1,PL(560,96,'bedaquiline','--bad'))+NOX(520,135,'--bad')+R(470,286,154,46,'--bad-soft',{sc:'--bad'})+T(547,304,'PZA: ทำงานในกรด',{s:11,w:800,a:'middle',c:'--bad'})+T(547,322,'(macrophage/เนื้อตาย)',{s:10,a:'middle',c:'--bad'})+T(16,326,'BDQ: ATP synthase → เชื้อหมดพลังงาน',{s:11.5,w:800,a:'start',c:'--bad'}));
+ return b},steps:S};}
+
+/* ===== URI / Pneumonia / UTI / STD / Vaginitis / Helminth animated scenes ===== */
+const DOT=(x,y,r,c,t,ts=8)=>`<circle cx="${x}" cy="${y}" r="${r}" style="fill:var(${c})"/>`+(t?`<text x="${x}" y="${y+ts*.38}" font-size="${ts}" font-weight="800" text-anchor="middle" style="fill:#fff">${t}</text>`:'');
+const FADEIN=(inner,d=1)=>`<g opacity="0">${AN('opacity','0;1',d)}${inner}</g>`;
+
+{const S=FIG.neura.steps;
+FIG.neura={title:'Oseltamivir ทำงานอย่างไร: ล็อกไม่ให้ไวรัสหลุดออกจากเซลล์',h:270,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(16,170,320,90,'--blue-soft',{sc:'--blue',rx:20})+T(176,248,'เซลล์ที่ติดเชื้อ',{s:12,w:800,a:'middle',c:'--blue'})+R(400,170,224,90,'--blue-soft',{sc:'--blue',rx:20})+T(512,248,'เซลล์ถัดไป',{s:12,w:800,a:'middle',c:'--blue'})+
+  [100,140,180,220,260].map(x=>`<path d="M${x},170 l0,-14" style="stroke:var(--ok);stroke-width:3"/><circle cx="${x}" cy="152" r="4" style="fill:var(--ok)"/>`).join('')+T(30,150,'sialic acid',{s:11,w:700,a:'start',c:'--ok'}));
+ b+=G(0,`<g>${ANT('0,0;0,-4;0,0',.8,{rep:'indefinite'})}${VIR(180,124,18)}</g>`+T(210,96,'ไวรัสใหม่ยังเกาะ sialic acid',{s:11.5,w:700,a:'start',c:'--bad'}),{hide:1});
+ b+=G(1,`<g>${ANT('0,0;140,-60;330,10',3,{rep:'indefinite'})}${VIR(180,124,18)}</g>`+FADEIN(`<path d="M168,148 l24,0" style="stroke:var(--agar);stroke-width:4"/>`)+T(200,40,'neuraminidase ตัด sialic acid → ไวรัสหลุดไปเซลล์อื่น',{s:11.5,w:800,a:'start',c:'--agar'}),{hide:2});
+ b+=G(2,`<g>${ANT('0,0;0,-6;0,0',.5,{rep:'indefinite'})}${VIR(180,124,18)}</g>`+DMV('-80,-40',1,PL(232,110,'oseltamivir','--blue'))+NOX(180,90,'--blue')+T(360,60,'ไวรัสติดค้าง กระจายต่อไม่ได้',{s:12,w:800,a:'start',c:'--blue'})+R(360,76,230,30,'--ok-soft',{sc:'--ok',rx:15})+T(475,96,'เริ่มภายใน 48 ชม.',{s:12,w:800,a:'middle',c:'--ok'}));
+ return b},steps:S};}
+
+{const S=FIG.rebound.steps;
+const VS=(r0,r1,d=1.4)=>[80,200,320,440,560].map(x=>`<circle cx="${x}" cy="74" r="${r0}" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2">${AN('r',`${r0};${r1}`,d)}</circle><circle cx="${x+40}" cy="206" r="${r0}" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:2">${AN('r',`${r0};${r1}`,d)}</circle>`).join('');
+const AIR=(h0,h1)=>`<rect x="0" y="${140-h0/2}" width="640" height="${h0}" style="fill:var(--surface)"><animate attributeName="y" values="${140-h0/2};${140-h1/2}" dur="1.4s" begin="indefinite" fill="freeze"/><animate attributeName="height" values="${h0};${h1}" dur="1.4s" begin="indefinite" fill="freeze"/></rect>`;
+FIG.rebound={title:'วงจรติดยาพ่นจมูก (Rhinitis medicamentosa)',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,R(0,30,640,220,'--agar-soft',{rx:0})+T(10,22,'เยื่อบุจมูก + หลอดเลือด',{s:11.5,w:700,a:'start',c:'--agar'}));
+ b+=G(0,AIR(40,90)+VS(26,10)+MV('M0,40 C80,60 140,70 200,74',{n:3,lbl:'oxy',c:'--blue',r:12,dur:1.4})+T(320,280,'พ่นแล้วหลอดเลือดหด',{s:12.5,w:800,a:'middle',c:'--blue'}),{hide:1});
+ b+=G(1,AIR(90,90)+VS(10,10)+MV('M0,140 L640,140',{n:6,lbl:'',c:'--ok',r:5,dur:1.2})+T(320,280,'จมูกโล่งทันที',{s:12.5,w:800,a:'middle',c:'--ok'}),{hide:2});
+ b+=G(2,AIR(90,16)+VS(10,34)+MV('M0,140 L640,140',{n:2,lbl:'',c:'--ok',r:4,dur:4})+T(320,280,'ยาหมดฤทธิ์ → หลอดเลือดขยายกลับ บวมกว่าเดิม (rebound)',{s:12.5,w:800,a:'middle',c:'--bad'}),{hide:3});
+ b+=G(3,AIR(16,16)+VS(34,34)+MV('M0,40 C80,60 140,70 200,74',{n:5,lbl:'oxy',c:'--blue',r:12,dur:.9})+R(170,256,300,40,'--bad-soft',{sc:'--bad'})+T(320,276,'พ่นถี่ขึ้น วนซ้ำ = rhinitis medicamentosa',{s:12,w:800,a:'middle',c:'--bad'})+T(320,290,'ใช้ไม่เกิน 5 วัน • ทารกใช้น้ำเกลือ',{s:10.5,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.alveoli.steps;
+FIG.alveoli={title:'ถุงลมปกติ vs ปอดอักเสบ',h:290,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,`<circle cx="230" cy="150" r="100" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:3"/>`+T(230,40,'ถุงลม',{s:13,w:800,a:'middle',c:'--blue'})+`<path d="M110,260 C200,262 300,262 360,240 C390,220 390,180 340,160" style="fill:none;stroke:var(--bad);stroke-width:10;opacity:.6"/>`+T(110,280,'หลอดเลือดฝอย',{s:11,a:'start',c:'--bad'}));
+ b+=G(0,MV('M200,120 C230,180 260,220 300,250',{n:4,lbl:'O₂',c:'--blue',r:10,dur:2}),{hide:2});
+ b+=G(1,MV('M230,0 L230,90',{n:2,lbl:'',c:'--bad',r:6,dur:1.6})+MV('M360,250 C330,220 300,200 280,180',{n:1,lbl:'',c:'--bad',r:6,dur:2})+MV('M40,30 C100,60 140,90 170,110',{n:3,lbl:'',c:'--bad',r:6,dur:1.6})+
+  T(250,20,'สูดละออง',{s:11,w:700,a:'start',c:'--bad'})+T(20,22,'สำลักจากปาก/คอหอย (บ่อยสุด)',{s:11,w:700,a:'start',c:'--bad'})+T(400,236,'กระแสเลือด',{s:11,w:700,a:'start',c:'--bad'}));
+ b+=G(2,`<circle cx="230" cy="150" r="10" style="fill:var(--agar);opacity:.55">${AN('r','10;92',2.4)}</circle>`+[0,1,2,3].map(i=>MV(`M${330-i*10},250 C${300-i*10},210 ${260-i*20},180 ${230-i*20},${160-i*6}`,{n:1,lbl:'WBC',c:'--violet',r:14,dur:1.6+i*.3})).join('')+MV('M200,120 C230,180 260,220 300,250',{n:1,lbl:'O₂',c:'--blue',r:10,dur:4})+
+  T(380,60,'consolidation: หนอง สารน้ำ fibrin',{s:12,w:800,a:'start',c:'--agar'})+T(380,80,'ไข้ ไอมีเสมหะ หอบ',{s:11.5,a:'start',c:'--agar'})+T(380,98,'เจ็บหน้าอกเวลาหายใจ O₂ ต่ำ',{s:11.5,a:'start',c:'--agar'}));
+ b+=G(3,R(420,130,200,140,'--ink2',{rx:12})+`<ellipse cx="480" cy="200" rx="40" ry="56" style="fill:#555"/><ellipse cx="560" cy="200" rx="40" ry="56" style="fill:#555"/><ellipse cx="560" cy="220" rx="24" ry="22" style="fill:#eee;opacity:0">${AN('opacity','0;.85',1.6)}</ellipse>`+T(520,150,'CXR: new infiltrate',{s:11,w:800,a:'middle',c:'--surface'}));
+ return b},steps:S};}
+
+/* urinary tract scene for utiClimb + drugReach */
+const URT=()=>KID(150,20,.55,'--agar')+KID(470,20,.55,'--agar')+`<path d="M180,96 C200,160 260,190 290,214 M490,96 C470,160 400,190 350,214" style="fill:none;stroke:var(--agar);stroke-width:5"/>`+
+  `<ellipse cx="320" cy="240" rx="60" ry="40" style="fill:var(--blue-soft);stroke:var(--blue);stroke-width:2.5"/><path d="M320,280 L320,318" style="stroke:var(--blue);stroke-width:6"/>`+
+  T(150,112,'ไต',{s:12,w:800,a:'middle',c:'--agar'})+T(400,250,'กระเพาะปัสสาวะ',{s:11.5,w:800,a:'start',c:'--blue'})+T(330,316,'ท่อปัสสาวะ',{s:11,w:700,a:'start',c:'--blue'});
+const CLIMB='M320,326 L320,244 C300,220 270,190 230,150 C200,120 190,100 180,70';
+
+{const S=FIG.utiClimb.steps;
+FIG.utiClimb={title:'เชื้อ "ไต่ขึ้น" จากท่อปัสสาวะ → กระเพาะปัสสาวะ → ไต',h:340,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,URT()+[0,1,2].map(i=>`<g>${ANT('0,0;2,-2;0,0',.6+i*.2,{rep:'indefinite'})}<rect x="${300+i*14}" y="${322+(i%2)*6}" width="12" height="5" rx="2.5" style="fill:var(--bad)"/></g>`).join('')+
+  T(16,300,'E. coli จากลำไส้ของตัวเอง',{s:11.5,w:800,a:'start',c:'--bad'})+T(16,318,'ผู้หญิง: ท่อสั้น ใกล้ทวาร',{s:11,a:'start',c:'--bad'}));
+ b+=G(1,MV('M320,326 L320,250',{n:4,lbl:'',c:'--bad',r:5,dur:1.8})+`<ellipse cx="320" cy="240" rx="60" ry="40" style="fill:none;stroke:var(--bad);stroke-width:4">${AN('stroke-opacity','1;.1;1',1.2,{rep:'indefinite'})}</ellipse>`+
+  T(470,180,'Cystitis (lower UTI)',{s:12.5,w:800,a:'start',c:'--blue'})+T(470,198,'แสบขัด บ่อย ปวดหน่วง',{s:11,a:'start',c:'--blue'})+T(470,214,'ขุ่น/มีเลือด',{s:11,a:'start',c:'--blue'}));
+ b+=G(2,MV(CLIMB,{n:3,lbl:'',c:'--bad',r:5,dur:3,track:1})+`<path transform="translate(150,20) scale(.55)" d="M30,0 C60,0 70,30 60,50 C54,60 40,56 40,70 C40,84 56,82 60,92 C68,116 50,140 30,140 C0,140 -10,100 -10,70 C-10,40 0,0 30,0 Z" style="fill:var(--bad);opacity:.2">${AN('opacity','.1;.45;.1',1.2,{rep:'indefinite'})}</path>`+
+  T(16,140,'Pyelonephritis (upper UTI)',{s:12.5,w:800,a:'start',c:'--bad'})+T(16,158,'ไข้ หนาวสั่น ปวดเอว CVA tenderness',{s:11,a:'start',c:'--bad'})+T(16,174,'ต้องใช้ยาที่เข้าเนื้อไตได้',{s:11,w:700,a:'start',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.drugReach.steps;
+FIG.drugReach={title:'ยาไปถึงไหน: เหตุผลที่ nitrofurantoin รักษาไตไม่ได้',h:340,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,URT()+VES(150,26,'เลือด',540,640));
+ b+=G(0,[[300,230],[330,250],[310,252],[345,232],[290,246],[325,226]].map(([x,y],i)=>FADEIN(DOT(x,y,7,'--violet'),.4+i*.3)).join('')+MV('M180,70 C190,100 200,130 230,150 C270,190 300,220 316,236',{n:3,c:'--violet',r:5,dur:2})+
+  T(16,140,'nitrofurantoin / fosfomycin',{s:12,w:800,a:'start',c:'--violet'})+T(16,158,'เข้มข้นในปัสสาวะ แต่ไต/เลือดต่ำ',{s:11,a:'start',c:'--violet'})+T(16,174,'→ เฉพาะ cystitis',{s:11.5,w:800,a:'start',c:'--violet'})+NOX(150,60,'--violet'),{hide:1});
+ b+=G(1,[[150,56],[170,70],[140,80],[470,56],[490,72],[300,236],[330,248],[575,163],[600,163]].map(([x,y],i)=>FADEIN(DOT(x,y,7,'--ok'),.4+i*.2)).join('')+MV('M640,163 L540,163',{n:3,c:'--ok',r:5,dur:1.6})+
+  T(16,140,'ceftriaxone, FQ, TMP/SMX',{s:12,w:800,a:'start',c:'--ok'})+T(16,158,'ระดับดีในเลือด + เนื้อไต',{s:11,a:'start',c:'--ok'})+T(16,174,'→ pyelonephritis, complicated UTI',{s:11.5,w:800,a:'start',c:'--ok'}));
+ return b},steps:S};}
+
+{const S=FIG.hsvLatent.steps;const NRV='M150,90 C250,90 350,130 470,140';
+const VES2=(d)=>[110,140,170].map((x,i)=>FADEIN(`<circle cx="${x}" cy="${62+(i%2)*6}" r="9" style="fill:var(--surface);stroke:var(--saf);stroke-width:2"/>`,d+i*.3)).join('');
+FIG.hsvLatent={title:'ทำไมเริมเป็นซ้ำ: ไวรัสหลบอยู่ในปมประสาท',h:260,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,R(16,40,180,60,'--saf-soft',{sc:'--saf',rx:10})+T(106,120,'ผิวหนัง / เยื่อบุ',{s:11.5,w:800,a:'middle',c:'--saf'})+PA(NRV,'none',{sc:'--violet',sw:4})+`<ellipse cx="500" cy="142" rx="40" ry="28" style="fill:var(--violet-soft);stroke:var(--violet);stroke-width:2.5"/>`+T(500,190,'ปมประสาท',{s:12,w:800,a:'middle',c:'--violet'}));
+ b+=G(0,VES2(.6)+T(16,220,'ครั้งแรก: ตุ่มน้ำใสเป็นกลุ่ม แสบ คัน อาการมากและนาน',{s:12,w:800,a:'start',c:'--saf'}),{hide:1});
+ b+=G(1,MV(NRV,{n:2,lbl:'',c:'--bad',r:6,dur:2.4})+`<circle cx="500" cy="142" r="10" style="fill:var(--bad);opacity:.6">${AN('opacity','.2;.8;.2',1.6,{rep:'indefinite'})}</circle>`+T(16,220,'ไวรัสเดินย้อนเส้นประสาทไปแฝง → ยาฆ่าไวรัสแฝงไม่ได้',{s:12,w:800,a:'start',c:'--violet'}));
+ b+=G(2,MV('M470,140 C350,130 250,90 150,90',{n:2,lbl:'',c:'--bad',r:6,dur:2.4})+VES2(1.6)+T(560,90,'เครียด ป่วย ประจำเดือน',{s:11,w:700,a:'middle',c:'--bad'})+T(560,106,'ภูมิตก → กลับมา',{s:11,a:'middle',c:'--bad'})+
+  R(16,230,608,26,'--ok-soft',{sc:'--ok',rx:13})+T(320,248,'recurrent อาการน้อย ใช้ยาสั้นกว่า • ≥6 ครั้ง/ปี → กินยากดทุกวัน ประเมินทุก 1 ปี',{s:11,w:800,a:'middle',c:'--ok'}));
+ return b},steps:S};}
+
+{const S=FIG.flora.steps;const LB=(x,y)=>`<rect x="${x-10}" y="${y-3.5}" width="20" height="7" rx="3.5" style="fill:var(--blue)"/>`;
+const PH=(to)=>R(540,40,40,200,'--surface2',{rx:8})+`<line x1="530" y1="190" x2="590" y2="190" style="stroke:var(--ink);stroke-width:3"><animate attributeName="y1" values="190;${to}" dur="1.6s" begin="indefinite" fill="freeze"/><animate attributeName="y2" values="190;${to}" dur="1.6s" begin="indefinite" fill="freeze"/></line>`+T(560,262,'pH',{s:12,w:800,a:'middle'})+T(596,190,'4.5',{s:10,a:'start',c:'--muted'});
+FIG.flora={title:'ช่องคลอดปกติ vs Bacterial vaginosis',h:280,anim:1,dur:6000,body:()=>{let b='';
+ b+=G(0,R(16,180,500,60,'--saf-soft',{sc:'--saf',rx:0})+T(30,262,'เยื่อบุช่องคลอด',{s:11.5,w:700,a:'start',c:'--saf'}));
+ b+=G(0,[[80,80],[160,120],[240,70],[320,130],[400,90],[460,140],[120,160],[280,160]].map(([x,y],i)=>`<g>${ANT('0,0;4,-3;0,0',1+i*.1,{rep:'indefinite'})}${LB(x,y)}</g>`).join('')+MV('M120,150 C200,110 300,90 520,80',{n:4,lbl:'H⁺',c:'--ok',r:9,dur:2})+PH(176)+
+  T(16,26,'Lactobacilli สร้างกรดแลคติก → pH ≤4.5 = เกราะกันเชื้อ',{s:12,w:800,a:'start',c:'--blue'}),{hide:1});
+ b+=G(1,[[80,80],[320,130]].map(([x,y])=>LB(x,y)).join('')+[...Array(14)].map((_,i)=>FADEIN(DOT(50+((i*67)%440),50+((i*41)%120),5,'--agar'),.3+i*.12)).join('')+PH(110)+
+  [0,1,2].map(i=>`<path d="M${200+i*60},40 q10,-10 20,0 t20,0" style="fill:none;stroke:var(--agar);stroke-width:2.5"><animate attributeName="opacity" values="0;1;0" dur="1.6s" begin="indefinite" repeatCount="indefinite"/></path>`).join('')+
+  T(16,26,'BV: Lactobacilli ↓ anaerobes/Gardnerella ↑ → pH สูง กลิ่นคาวปลา (amine)',{s:11.5,w:800,a:'start',c:'--agar'})+T(16,276,'ความไม่สมดุลของเชื้อ ไม่ใช่ STI',{s:11.5,w:800,a:'start',c:'--bad'}));
+ return b},steps:S};}
+
+{const S=FIG.disulf.steps;
+FIG.disulf={title:'ทำไมห้ามดื่มเหล้าเมื่อกิน metronidazole',h:260,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,[['Ethanol',70,'--ink2'],['Acetaldehyde',320,'--bad'],['Acetate',570,'--ok']].map(([t,x,c])=>R(x-60,50,120,40,c==='--ink2'?'--surface2':c+'-soft',{sc:c})+T(x,75,t,{s:12.5,w:800,a:'middle',c:c==='--ink2'?'--ink':c})).join('')+ENZ(445,70,'ALDH','--blue')+T(445,108,'aldehyde dehydrogenase',{s:10,a:'middle',c:'--blue'}));
+ b+=G(0,MV('M130,70 L258,70',{n:3,c:'--bad',r:6,dur:1.4}));
+ b+=G(0,MV('M380,70 L508,70',{n:3,c:'--ok',r:6,dur:1.4})+T(320,150,'acetate ไม่มีพิษ',{s:12,w:700,a:'middle',c:'--ok'}),{hide:1});
+ b+=G(1,DMV('0,60',1,PL(445,130,'metronidazole','--violet'))+NOX(445,70,'--violet')+T(445,158,'nitroimidazole ring รบกวน ALDH',{s:11.5,w:700,a:'middle',c:'--violet'}));
+ b+=G(2,[[300,120],[320,136],[340,120],[310,150],[330,152],[290,140]].map(([x,y],i)=>FADEIN(DOT(x,y,6,'--bad'),.3+i*.3)).join('')+`<circle cx="100" cy="190" r="30" style="fill:var(--bad);opacity:.25">${AN('opacity','.15;.5;.15',1,{rep:'indefinite'})}</circle><circle cx="100" cy="190" r="30" style="fill:none;stroke:var(--ink2);stroke-width:2"/>`+
+  T(150,184,'disulfiram-like: หน้าแดง ปวดหัว คลื่นไส้ ใจสั่น',{s:11.5,w:800,a:'start',c:'--bad'})+T(150,204,'งดเหล้า (รวมยาน้ำมีแอลกอฮอล์)',{s:11,a:'start',c:'--bad'})+T(150,224,'หลังหยุดยา: metronidazole 24 ชม. • tinidazole 72 ชม.',{s:11.5,w:800,a:'start',c:'--violet'}));
+ return b},steps:S};}
+
+{const S=FIG.pinworm.steps;const N=[[120,80,'ปาก (กลืนไข่)','--blue'],[500,90,'ลำไส้ใหญ่','--agar'],[500,230,'รอบทวาร (กลางคืน)','--bad'],[130,230,'มือ เล็บ ผ้าปู','--violet']];
+const SEGP=['M140,86 C260,60 380,60 480,90','M500,112 L500,208','M478,232 C380,262 260,262 152,236','M120,210 L120,104'];
+FIG.pinworm={title:'วงจรพยาธิเข็มหมุด: ทำไมต้องรักษาทั้งบ้าน และให้ยาซ้ำใน 2 สัปดาห์',h:300,anim:1,dur:5200,body:()=>{let b='';
+ b+=G(0,N.map(([x,y,t,c])=>`<circle cx="${x}" cy="${y}" r="22" style="fill:var(${c}-soft);stroke:var(${c});stroke-width:2.5"/>`+T(x,y+40,t,{s:11.5,w:800,a:'middle',c})).join('')+SEGP.map(d=>PA(d,'none',{sc:'--line',sw:3})).join(''));
+ b+=G(0,MV(SEGP[0],{n:3,lbl:'egg',c:'--blue',r:11,dur:2.4,track:1}),{hide:2});
+ b+=G(1,`<path d="M486,90 q7,-8 14,0 t14,0" style="fill:none;stroke:var(--agar);stroke-width:4"><animate attributeName="d" values="M486,90 q7,-8 14,0 t14,0;M486,90 q7,8 14,0 t14,0;M486,90 q7,-8 14,0 t14,0" dur=".8s" begin="indefinite" repeatCount="indefinite"/></path>`+T(320,150,'ไข่ฟักเป็นตัวแก่',{s:12,w:800,a:'middle',c:'--agar'}),{hide:2});
+ b+=G(2,MV(SEGP[1],{n:2,lbl:'♀',c:'--bad',r:10,dur:2})+`<circle cx="500" cy="230" r="22" style="fill:none;stroke:var(--bad);stroke-width:4">${AN('r','22;30;22',1,{rep:'indefinite'})}</circle>`+T(320,150,'ตัวเมียวางไข่ → คันก้น นอนไม่หลับ',{s:12,w:800,a:'middle',c:'--bad'})+T(320,168,'ตรวจ scotch tape ตอนเช้า',{s:11,a:'middle',c:'--bad'}),{hide:3});
+ b+=G(3,MV(SEGP[2],{n:3,lbl:'egg',c:'--violet',r:11,dur:2})+MV(SEGP[3],{n:3,lbl:'egg',c:'--violet',r:11,dur:2})+MV('M150,236 C80,280 30,250 20,200',{n:2,lbl:'egg',c:'--violet',r:11,dur:2})+T(320,150,'เกา → ไข่ติดมือ → เข้าปากซ้ำ/ติดคนในบ้าน',{s:12,w:800,a:'middle',c:'--violet'}),{hide:4});
+ b+=G(4,DMV('-60,0',1,PL(400,60,'ยาถ่ายพยาธิ','--ok'))+NOX(500,90,'--ok')+FADEIN(DOT(500,230,9,'--blue','egg',7))+T(540,236,'ไข่รอด',{s:11,w:700,a:'start',c:'--blue'})+
+  R(160,130,280,60,'--ok-soft',{sc:'--ok'})+T(300,154,'ให้ยาซ้ำใน 2 สัปดาห์',{s:12.5,w:800,a:'middle',c:'--ok'})+T(300,174,'รักษาทุกคนในบ้าน • ซักผ้าน้ำร้อน • ตัดเล็บ',{s:11,a:'middle',c:'--ok'}));
+ return b},steps:S};}
+
+{const S=FIG.helmMoa.steps;const W1='M140,150 C200,110 260,190 320,150 C380,110 440,190 500,150',W2='M140,150 C200,190 260,110 320,150 C380,190 440,110 500,150',WS='M140,150 L500,150',WF='M140,170 C220,200 420,200 500,170';
+const WORM=(vals,dur,c='--agar',sw=16)=>`<path d="${vals.split(';')[0]}" style="fill:none;stroke:var(${c});stroke-width:${sw};stroke-linecap:round"><animate attributeName="d" values="${vals}" dur="${dur}s" begin="indefinite" repeatCount="indefinite"/></path>`;
+const WORMto=(a,bb,c='--agar')=>`<path d="${a}" style="fill:none;stroke:var(${c});stroke-width:16;stroke-linecap:round"><animate attributeName="d" values="${a};${bb}" dur="1.4s" begin="indefinite" fill="freeze"/></path>`;
+FIG.helmMoa={title:'ยาถ่ายพยาธิแต่ละตัวทำอะไรกับพยาธิ',h:300,anim:1,dur:5600,body:()=>{let b='';
+ b+=G(0,DMV('0,-60',1,PL(320,80,'albendazole / mebendazole','--blue'))+WORM(W1+';'+W2+';'+W1,3)+MV('M630,150 L508,150',{n:3,lbl:'G',c:'--agar',r:9,dur:1.6})+NOX(560,150,'--blue')+
+  T(320,240,'จับ β-tubulin → ดูดกลูโคสไม่ได้ ค่อย ๆ ตาย (ช้า)',{s:12,w:800,a:'middle',c:'--blue'}),{hide:1});
+ b+=G(1,DMV('0,-60',1,PL(320,80,'pyrantel pamoate','--violet'))+WORMto(W1,WS,'--agar')+`<g>${ANT('0,0;0,0;140,0',3,{rep:'indefinite'})}<path d="M520,150 L580,150" style="stroke:var(--muted);stroke-width:2;stroke-dasharray:4 4"/></g>`+
+  T(320,240,'depolarizing blocker → เกร็งค้าง (spastic) หลุดออกกับอุจจาระ',{s:12,w:800,a:'middle',c:'--violet'}),{hide:2});
+ b+=G(2,DMV('0,-60',1,PL(320,80,'ivermectin','--ok'))+WORMto(W1,WF,'--agar')+MV('M200,110 L220,160',{n:2,lbl:'Cl⁻',c:'--ok',r:11,dur:1.4})+MV('M420,110 L430,170',{n:2,lbl:'Cl⁻',c:'--ok',r:11,dur:1.4})+
+  T(320,240,'GABA / glutamate-gated Cl⁻ ↑ → อัมพาตแบบอ่อน (flaccid)',{s:12,w:800,a:'middle',c:'--ok'}),{hide:3});
+ b+=G(3,DMV('0,-60',1,PL(320,80,'praziquantel','--saf'))+WORM(W1+';'+WS+';'+W1,.3,'--agar')+MV('M260,110 L270,150',{n:3,lbl:'Ca',c:'--saf',r:10,dur:1})+MV('M380,110 L380,150',{n:3,lbl:'Ca',c:'--saf',r:10,dur:1})+
+  T(320,240,'Ca²⁺ ซึมเข้า ↑ → หดเกร็งรุนแรง อัมพาต ผิวถูกทำลาย',{s:12,w:800,a:'middle',c:'--saf'}),{hide:4});
+ b+=G(4,DMV('0,-60',1,PL(320,80,'niclosamide','--bad'))+`<path d="${W1}" style="fill:none;stroke:var(--agar);stroke-width:16;stroke-linecap:round;opacity:1">${AN('opacity','1;.35',2)}</path>`+FADEIN(DOT(560,150,16,'--bad','ATP',10))+NOX(560,150,'--ink')+
+  T(320,240,'uncouple oxidative phosphorylation → ไม่มี ATP',{s:12,w:800,a:'middle',c:'--bad'})+T(320,260,'แทบไม่ดูดซึม: ฆ่าตืดในลำไส้ได้ แต่ใช้ในเนื้อเยื่อไม่ได้',{s:11.5,a:'middle',c:'--bad'}));
+ return b},steps:S};}
+
+
 start();
 
 </script>
